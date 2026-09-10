@@ -26,6 +26,9 @@ const PICKER_SETTINGS = ['entry_source', 'entries'];
 
 const read = (file) => fs.readFileSync(path.join(THEME, file), 'utf8');
 
+// Shopify's JSON templates and locale files open with a /* ... */ notice, which JSON.parse rejects.
+const readJson = (file) => JSON.parse(read(file).replace(/^\uFEFF?\s*\/\*[\s\S]*?\*\//, ''));
+
 // ------------------------------------------------------------------ Liquid
 
 const engine = new Liquid({
@@ -42,6 +45,13 @@ engine.registerFilter('asset_url', (file) => `/cdn/assets/${file}`);
 engine.registerFilter('stylesheet_tag', (url) => `<link rel="stylesheet" href="${url}">`);
 engine.registerFilter('image_url', (image, ...args) => `${image.src}?width=${keywordArg(args, 'width')}`);
 engine.registerFilter('metafield_tag', (field) => (field?.value ? '<p>rich text</p>' : ''));
+
+// Reads the real default locale file, so a key missing from it fails the payload tests.
+const translations = readJson('locales/en.default.json');
+engine.registerFilter(
+  't',
+  (key) => key.split('.').reduce((node, part) => node?.[part], translations) ?? `translation missing: ${key}`,
+);
 
 // ------------------------------------------------------------------ Fixtures
 
@@ -129,11 +139,22 @@ const templateSource = (file) =>
     .replace(/{%-?\s*style\s*-?%}/g, '<style>')
     .replace(/{%-?\s*endstyle\s*-?%}/g, '</style>');
 
-async function renderSection(file, { settings = {}, product, entries = allLooks, designMode = false } = {}) {
+async function renderSection(
+  file,
+  { settings = {}, product, entries = allLooks, designMode = false, storefrontToken = '' } = {},
+) {
   const html = await engine.parseAndRender(
     templateSource(file),
     { section: { id: 'template--1__lookbook', settings: { ...settingDefaults(file), ...settings } }, product },
-    { globals: { shop: { metaobjects: { lookbook: { values: entries } } }, request: { design_mode: designMode } } },
+    {
+      globals: {
+        settings: { storefront_api_token: storefrontToken },
+        shop: { permanent_domain: 'example.myshopify.com', metaobjects: { lookbook: { values: entries } } },
+        localization: { country: { iso_code: 'FR' } },
+        request: { design_mode: designMode, locale: { iso_code: 'pt-BR' } },
+        routes: { root_url: '/fr' },
+      },
+    },
   );
   const script = html.match(/<script type="application\/json" id="LookbookData-[^"]+">([\s\S]*?)<\/script>/);
 
@@ -183,7 +204,7 @@ describe('Related lookbook section', () => {
   });
 
   test('is on the product template by default', () => {
-    const template = JSON.parse(read('templates/product.json').replace(/^\uFEFF?\s*\/\*[\s\S]*?\*\//, ''));
+    const template = readJson('templates/product.json');
     const key = Object.keys(template.sections).find((id) => template.sections[id].type === 'lookbook-related');
 
     assert.ok(key, 'no lookbook-related section in product.json');
@@ -333,5 +354,58 @@ describe('Lookbook section', () => {
     const { html } = await renderSection(HOME, { designMode: true });
 
     assert.match(html, /set to Collection but has no collection picked/);
+  });
+});
+
+describe('Load more (Storefront API)', () => {
+  test('is off without a token', async () => {
+    const { payload } = await renderSection(HOME, { settings: { entries_limit: 2 } });
+
+    assert.equal(payload.loadMore, null);
+  });
+
+  test('carries the API details when a token is set and more looks exist', async () => {
+    const { payload } = await renderSection(HOME, {
+      settings: { entries_limit: 2 },
+      storefrontToken: ' public-token ',
+    });
+
+    assert.deepEqual(payload.loadMore, {
+      endpoint: 'https://example.myshopify.com/api/2026-07/graphql.json',
+      token: 'public-token',
+      country: 'FR',
+      language: 'pt-BR',
+      rootUrl: '/fr',
+      pageSize: 2,
+      productsLimit: 12,
+      label: 'Show more',
+      loadingLabel: 'Loading...',
+      errorMessage: "Couldn't load more. Please try again.",
+    });
+  });
+
+  test('is not offered when every look is already shown', async () => {
+    const { payload } = await renderSection(HOME, { storefrontToken: 'public-token' });
+
+    assert.equal(payload.loadMore, null);
+  });
+
+  test('is not offered for picked entries', async () => {
+    const { payload } = await renderSection(HOME, {
+      settings: { entry_source: 'selected', entries: [looks[4], looks[2]], entries_limit: 1 },
+      storefrontToken: 'public-token',
+    });
+
+    assert.equal(payload.loadMore, null);
+  });
+
+  test('is never offered on a product page', async () => {
+    const { payload } = await renderSection(RELATED, {
+      product: products[1],
+      settings: { entries_limit: 1 },
+      storefrontToken: 'public-token',
+    });
+
+    assert.equal(payload.loadMore, null);
   });
 });
