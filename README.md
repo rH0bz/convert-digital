@@ -15,7 +15,7 @@ solely to compile `src/lookbook/` into `assets/lookbook.js`.
 | --- | --- | --- |
 | Node | 22.12 | Anything supporting ES2020 output works |
 | npm | 10.9 | |
-| Shopify CLI | 4.7 | `shopify theme dev` / `theme check` / `theme push` |
+| Shopify CLI | 4.8 | `shopify theme dev` / `theme check` / `theme push` |
 
 ---
 
@@ -43,9 +43,11 @@ bundles production React. Never push a watch-mode bundle.
 
 ## How the Lookbook works
 
-There is no client-side fetching. Liquid serialises everything into a JSON
-script tag at render time and React only takes over the markup, so the section
-is fully server-rendered as far as SEO and first paint are concerned.
+There is no client-side fetching. Liquid writes the lookbook data into a JSON
+script tag as the page renders, and React draws the markup from it once
+`lookbook.js` loads. The data arrives with the HTML — no API request and no
+access token in the page — but the lookbook itself appears after the script
+runs rather than in the initial HTML.
 
 ```
   metaobject entries
@@ -71,6 +73,27 @@ Two consequences worth internalising:
   currency format is not reachable from JavaScript.
 - **A malformed payload blanks the whole section** with nothing but a console
   error. JSON validity is the failure mode to guard (see *Invariants*).
+
+---
+
+## Design decisions
+
+- **Shopify-native only.** A metaobject holds the looks, Liquid reads them, and
+  sections expose the settings in the theme editor. React is compiled into a
+  theme asset; there is no app, app proxy or external service.
+- **Liquid rather than the Storefront API.** The Storefront API could return the
+  same metaobjects, but it would need a Storefront access token in the theme and
+  a request after the page loads. Liquid reads them during the page render,
+  gated by the same **Storefronts** access setting on the definition. The
+  Storefront API fits a headless storefront (Hydrogen), or loading more looks on
+  demand.
+- **The metaobject is the relationship.** A product page finds its looks from
+  the products each look already lists, so there is no second field on the
+  product to keep in sync.
+- **One snippet, two sections.** `snippets/lookbook.liquid` owns the field keys
+  and the payload; the sections own only their settings. Section schemas cannot
+  share settings, so the two are kept identical by hand and checked by
+  `npm test`.
 
 ---
 
@@ -165,15 +188,14 @@ in Settings → Custom data. Each entry uses its own Template. Not available on
 product templates, where Related lookbook takes its place.
 
 **Related lookbook** (product templates only; on `product.json` by default) —
-shows the looks that feature the product being viewed, up to **Maximum entries to
-show** (default **2**): a product in more looks than that shows the first ones,
-in admin order. The metaobject *is*
-the relationship, so there is no entry picker: add a product to a look and it
-appears here. Collection-sourced looks are matched through `product.collections`
-rather than by scanning the collection, which stays correct past the 50 products
-Liquid returns. Each look is drawn whole, with its own Template, exactly as the
-Lookbook section draws it. Every other setting is identical to Lookbook's (see
-*Invariants*).
+shows the looks that feature the product being viewed, up to **Maximum entries
+to show** (default **2**). A product in more looks than that shows the first
+ones, in admin order. The metaobject *is* the relationship, so there is no entry
+picker: add a product to a look and it appears here. Collection-sourced looks
+are matched through `product.collections` rather than by scanning the
+collection, which stays correct past the 50 products Liquid returns. Each look
+is drawn whole, with its own Template, exactly as the Lookbook section draws it.
+Every other setting is identical to Lookbook's (see *Invariants*).
 
 When no look matches, the section outputs **nothing** — no padded wrapper and no
 `lookbook.js` — so it is safe to leave on the product template for every
@@ -211,6 +233,20 @@ than computing it in JS — an inline style cannot carry a media query.
 
 ---
 
+## Known limitations
+
+- **The first 50 lookbook entries.** Liquid loops over at most 50 entries of a
+  metaobject definition, so All entries and the product-page match only
+  consider the first 50 in admin order. Going past that means paginating
+  `shop.metaobjects.lookbook.values`.
+- **Tablets keep the single row.** Between 750px and 990px, Default and Full
+  width stay on one row, so a look with four or more products can scroll
+  sideways.
+- **Theme editor text is English only.** Section settings use plain strings
+  rather than `t:` keys in `locales/*.schema.json`.
+
+---
+
 ## Invariants
 
 These are the things that look like tidy-ups and are not. Each one was a real
@@ -236,8 +272,9 @@ the section. Products are never skipped, so their loop uses `limit:` with
 
 **Lookbook and Related lookbook have identical settings.** Apart from the entry
 picker, and Maximum entries to show defaulting to 2 on product pages, the two
-schemas are copies of each other. That is a product requirement, not duplication to
-refactor away — section schemas cannot share settings, so change both.
+schemas are copies of each other. That is a product requirement, not duplication
+to refactor away — section schemas cannot share settings, so change both
+(`npm test` fails if they drift).
 
 **Never set a used CSS custom property inline from a setting.** Inline styles
 outrank media queries. The masonry row height is written to
