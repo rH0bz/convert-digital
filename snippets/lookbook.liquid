@@ -191,17 +191,21 @@
     # comparison. Collection-sourced looks are matched through the product's own
     # collections rather than by scanning the collection's products: that reads
     # a list the product already carries, and stays correct for collections
-    # larger than the 50 products Liquid will hand back.
+    # larger than the 50 products Liquid will hand back. A look set to Collection
+    # with no collection picked renders no products, so it features none — the
+    # products still in its picked list must not match it.
     assign entry_matches = true
     if containing_product != blank
       assign entry_matches = false
-      if entry_source_value contains 'collection' and entry_collection != blank
-        for related_collection in containing_product.collections
-          if related_collection.handle == entry_collection.handle
-            assign entry_matches = true
-            break
-          endif
-        endfor
+      if entry_source_value contains 'collection'
+        if entry_collection != blank
+          for related_collection in containing_product.collections
+            if related_collection.handle == entry_collection.handle
+              assign entry_matches = true
+              break
+            endif
+          endfor
+        endif
       else
         for candidate in entry_products
           if candidate.id == containing_product.id
