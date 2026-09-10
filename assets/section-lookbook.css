@@ -106,15 +106,19 @@
 
    `grid-auto-flow: column` puts every product in a single implicit row, so the
    row never wraps no matter how many products an entry has — which is the whole
-   point of these two templates.
+   point of these two templates on a wide screen.
 
    Equal columns come from `minmax(<min>, 1fr)`: while the products fit, 1fr
    splits the width evenly; once they cannot hold --row-card-min the track stops
    shrinking and the row scrolls sideways instead of crushing the cards.
+
+   Phones wrap instead, two up (see the media query below). Three cards already
+   overflow a phone, and one cut off at the screen edge reads as broken rather
+   than as "scroll for more".
    --------------------------------------------------------------------------- */
 
 .lookbook__products--row {
-  --row-card-min: 14rem;
+  --row-card-min: 18rem;
 
   grid-auto-flow: column;
   grid-auto-columns: minmax(var(--row-card-min), 1fr);
@@ -125,9 +129,18 @@
   scrollbar-width: thin;
 }
 
-@media screen and (min-width: 750px) {
+@media screen and (max-width: 749px) {
+  /*
+   * Two up, wrapping onto as many rows as the look needs, so every card is
+   * whole on screen. Nothing scrolls here, so the scroller's overflow and its
+   * focus-ring padding are handed back. The templates' `sizes` already describe
+   * a card this wide (45vw) below 750px.
+   */
   .lookbook__products--row {
-    --row-card-min: 18rem;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 }
 

@@ -93,8 +93,8 @@ src/lookbook/
   templates/
     index.jsx                Registry: choice value -> component
     EntryHeader.jsx          Shared title / sub heading / description
-    DefaultRow.jsx           One row, theme container
-    FullWidthRow.jsx         One row, full bleed
+    DefaultRow.jsx           One row, theme container (two up on phones)
+    FullWidthRow.jsx         One row, full bleed (two up on phones)
     MasonryGrid.jsx          Masonry rhythm, one image per product
     MasonryProductImages.jsx Masonry rhythm, a group of 3 images per product
 build.mjs                    esbuild config (add an entry point per React section)
@@ -143,8 +143,8 @@ Resolved in `src/lookbook/templates/index.jsx`, which normalises the value
 Default** for an empty or unrecognised choice, so a look never drops off the
 page. Suggested choice values:
 
-- `Default` — products on one row, theme container
-- `Full Width` — one row, full bleed
+- `Default` — products on one row, theme container; two up, wrapping, on phones
+- `Full Width` — one row, full bleed; two up, wrapping, on phones
 - `Masonry` — alternating wide/narrow cards at two heights
 - `Masonry - Product Images` — same rhythm, but each cell is a group of up to
   3 images from one product
