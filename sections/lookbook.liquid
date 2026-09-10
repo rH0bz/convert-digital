@@ -7,6 +7,10 @@
   field keys and the payload. That split is what lets a lookbook be rendered
   outside this section — see the snippet's header for its parameters.
 
+  Disabled on product templates. There the lookbook is
+  sections/lookbook-related.liquid, which takes its looks from the product being
+  viewed and deliberately offers no entry picker.
+
   Note there is no `page-width` on the wrapper below. Container width is set per
   entry by the template component, because the Full width template has to escape
   the container that Default and Masonry sit inside.
@@ -56,7 +60,8 @@
   "class": "section",
   "tag": "section",
   "disabled_on": {
-    "groups": ["header", "footer"]
+    "groups": ["header", "footer"],
+    "templates": ["product"]
   },
   "settings": [
     {

@@ -158,16 +158,23 @@ on each entry.
 ## The two sections
 
 **Lookbook** — pick entries manually or show all Active ones, in the order set
-in Settings → Custom data. Each entry uses its own Template.
+in Settings → Custom data. Each entry uses its own Template. Not available on
+product templates, where Related lookbook takes its place.
 
-**Related lookbook** (product templates only) — shows the looks that already
-feature the product being viewed. The metaobject *is* the relationship, so there
-is nothing to pick: add a product to a look and it appears here. Collection-
-sourced looks are matched through `product.collections` rather than by scanning
-the collection, which stays correct past the 50 products Liquid returns. The
-viewed product is removed from the looks it appears in, one template is forced
-for the whole section, and the section renders **nothing** when no look matches —
-so it is safe to leave on the product template for every product.
+**Related lookbook** (product templates only; on `product.json` by default) —
+shows the looks that feature the product being viewed, up to **Maximum entries to
+show** (default **2**): a product in more looks than that shows the first ones,
+in admin order. The metaobject *is*
+the relationship, so there is no entry picker: add a product to a look and it
+appears here. Collection-sourced looks are matched through `product.collections`
+rather than by scanning the collection, which stays correct past the 50 products
+Liquid returns. Each look is drawn whole, with its own Template, exactly as the
+Lookbook section draws it. Every other setting is identical to Lookbook's (see
+*Invariants*).
+
+When no look matches, the section outputs **nothing** — no padded wrapper and no
+`lookbook.js` — so it is safe to leave on the product template for every
+product. In the theme editor it shows a notice explaining why instead.
 
 ---
 
@@ -217,11 +224,17 @@ it because its lexer never unescapes string literals. Do not port that line to a
 templating language that *does* unescape (liquidjs) — the two halves collapse to
 the same value, `replace` becomes a no-op, and the guard silently disappears.
 
-**Commas in the payload are leading, not trailing.** Entries and products can be
-skipped (a look may not feature the related product; the viewed product is
-removed), so `forloop.last` marks the last item *examined*, not the last
-*written*. Loops count what they emit. Reintroducing `unless forloop.last`
-produces a trailing comma and blanks the section.
+**Commas in the payload are leading, not trailing.** Entries can be skipped (a
+look may not feature the related product), so `forloop.last` marks the last
+entry *examined*, not the last *written*; the entries loop counts what it emits.
+Reintroducing `unless forloop.last` there produces a trailing comma and blanks
+the section. Products are never skipped, so their loop uses `limit:` with
+`unless forloop.first` — add a reason to skip one and it must count too.
+
+**Lookbook and Related lookbook have identical settings.** Apart from the entry
+picker, and Maximum entries to show defaulting to 2 on product pages, the two
+schemas are copies of each other. That is a product requirement, not duplication to
+refactor away — section schemas cannot share settings, so change both.
 
 **Never set a used CSS custom property inline from a setting.** Inline styles
 outrank media queries. The masonry row height is written to

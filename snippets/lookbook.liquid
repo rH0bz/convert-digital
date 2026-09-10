@@ -34,13 +34,16 @@
     containing_product  a product. When given, only looks that already feature
                         that product are rendered — the metaobject IS the
                         relationship, so no extra field is needed to say which
-                        looks belong to a product.
-    exclude_product     a product to leave out of every look's product list.
-                        Normally the same product, so a product page does not
-                        recommend the page you are already on.
-    force_template      overrides each entry's own Template choice. A product
-                        page wants one consistent layout regardless of how each
-                        look was set up for the lookbook page.
+                        looks belong to a product. It changes which looks
+                        appear, never how one is drawn: each keeps all of its
+                        products and its own Template. Cap the matches with
+                        `entries_limit`.
+
+  OUTPUT
+  Nothing at all when no entry is rendered, apart from the theme-editor notices.
+  A caller can capture the render and skip its own wrapper when the result is
+  blank — sections/lookbook-related.liquid does, so a product outside every look
+  gets no empty padded gap.
 
   WHICH PRODUCTS (per entry)
   Each entry carries its own "Products Source" choice list:
@@ -155,13 +158,7 @@
     # would mean maintaining the same list twice. Guessing wrong is safe in the
     # direction that matters: too few images makes a group shrink, which is
     # already the defined behaviour for a product that has few images.
-    # `force_template` wins over the entry's own choice, so a caller that needs
-    # one consistent layout (a product page) is not at the mercy of how each
-    # look happened to be configured for the lookbook page.
     assign entry_template_raw = entry[key_template].value | default: ''
-    if force_template != blank
-      assign entry_template_raw = force_template
-    endif
 
     assign entry_template_value = entry_template_raw | downcase | replace: '-', ' ' | replace: '_', ' '
     assign product_image_limit = 1
@@ -238,20 +235,13 @@
     "template": {{ entry_template_raw | json }},
     "products": [
       {%- if render_products -%}
-      {%- assign emitted_products = 0 -%}
-      {%- for product in entry_products -%}
-        {%- liquid
-          # Counted rather than using `limit:`, because a product may be skipped
-          # and the cap should mean "this many shown", not "this many examined".
-          assign skip_product = false
-          if exclude_product != blank and product.id == exclude_product.id
-            assign skip_product = true
-          endif
-        -%}
-        {%- if emitted_products >= entry_products_limit -%}{%- break -%}{%- endif -%}
-        {%- unless skip_product -%}
-        {%- if emitted_products > 0 -%},{%- endif -%}
-        {%- assign emitted_products = emitted_products | plus: 1 -%}
+      {%- comment -%}
+        `forloop.first` is safe here only because no product is ever skipped.
+        Add a reason to skip one and this loop must count what it emits, as the
+        entries loop does.
+      {%- endcomment -%}
+      {%- for product in entry_products limit: entry_products_limit -%}
+        {%- unless forloop.first -%},{%- endunless -%}
         {
           "id": {{ product.id | json }},
           "title": {{ product.title | json }},
@@ -293,7 +283,6 @@
             {%- endfor -%}
           ]
         }
-        {%- endunless -%}
       {%- endfor -%}
       {%- endif -%}
     ]
@@ -342,11 +331,17 @@
   assign script_close = '</scr' | append: 'ipt>'
   assign script_close_safe = '<\/scr' | append: 'ipt>'
 -%}
+{%- comment -%}
+  No entries, no mount point: the renderer would draw nothing anyway, and a
+  blank result is what the OUTPUT contract in the header promises callers.
+{%- endcomment -%}
+{%- if emitted_entries > 0 -%}
 <script type="application/json" id="LookbookData-{{ uid }}">
   {{- payload | replace: script_close, script_close_safe -}}
 </script>
 
 <div data-lookbook="LookbookData-{{ uid }}"></div>
+{%- endif -%}
 
 {%- if request.design_mode and show_notices -%}
   {%- liquid

@@ -106,11 +106,16 @@
         "padding_top": 36,
         "padding_bottom": 28
       }
+    },
+    "related-lookbook": {
+      "type": "lookbook-related",
+      "settings": {}
     }
   },
   "order": [
     "main",
     "disclosures",
+    "related-lookbook",
     "related-products"
   ]
 }
