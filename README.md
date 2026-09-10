@@ -97,12 +97,15 @@ src/lookbook/
     FullWidthRow.jsx         One row, full bleed (two up on phones)
     MasonryGrid.jsx          Masonry rhythm, one image per product
     MasonryProductImages.jsx Masonry rhythm, a group of 3 images per product
+tests/
+  lookbook.test.mjs          Liquid render tests for the payload (npm test)
 build.mjs                    esbuild config (add an entry point per React section)
 ```
 
 `assets/lookbook.js` is a build output but **must be committed** — Shopify
 serves the theme from `assets/`, and `src/` never reaches the store
-(`.shopifyignore` excludes `src/`, `build.mjs`, `package.json`, `node_modules/`).
+(`.shopifyignore` excludes `src/`, `tests/`, `build.mjs`, `package.json`,
+`node_modules/`).
 
 ---
 
@@ -255,19 +258,18 @@ template.
 ## Verifying changes
 
 ```bash
+npm test                     # renders both sections and checks the JSON payload
 npm run build                # must succeed
-shopify theme check          # lookbook files should report 0 offenses
+shopify theme check          # no lookbook file may appear in the output
 ```
 
-`theme check` reports 11 pre-existing warnings in stock Dawn files — 6
-`UndefinedObject`, 2 `VariableName`, 2 `UnusedAssign`, 1 `OrphanedSnippet`.
-Those are not ours; what matters is that **no lookbook file appears in the
-output and the error count is 0**.
+`npm test` (`tests/lookbook.test.mjs`) covers what the other two cannot see: a
+malformed JSON payload, which blanks the section with only a console error, and
+the product page rules — which looks match, the entries limit, looks drawn
+whole, no output when nothing matches, and identical settings between the two
+sections. It renders through liquidjs with Shopify's filters stubbed, so it does
+not cover the closing-script guard (see *Invariants*).
 
-Neither command can catch a malformed JSON payload, which is the highest-impact
-failure. To test that, render `snippets/lookbook.liquid` through a Liquid engine
-with the Shopify filters stubbed (`json`, `money`, `image_url`, `strip_html`,
-`strip_newlines`, `metafield_tag`), extract the `<script type="application/json">`
-body and `JSON.parse` it — across combinations of product count, image count,
-products source, and the related-product filters. The cases that matter are the
-ones where the **first**, **middle** or **last** item is skipped.
+`theme check` also reports a few warnings in stock Dawn files (9 with Shopify
+CLI 4.8). Those are not ours; what matters is that **no lookbook file appears in
+the output and the error count is 0**.

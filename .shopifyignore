@@ -1,6 +1,7 @@
 # Source + tooling: these are build inputs, not theme files.
 node_modules/
 src/
+tests/
 build.mjs
 package.json
 package-lock.json
