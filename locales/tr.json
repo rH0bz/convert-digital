@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Daha fazla göster",
+      "load_more_error": "Daha fazlası yüklenemedi. Lütfen tekrar deneyin."
+    },
     "header": {
       "announcement": "Duyuru",
       "menu": "Menü",

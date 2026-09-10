@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "แสดงมากขึ้น",
+      "load_more_error": "ไม่สามารถโหลดเพิ่มเติมได้ โปรดลองอีกครั้ง"
+    },
     "header": {
       "announcement": "การประกาศ",
       "menu": "เมนู",

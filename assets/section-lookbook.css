@@ -481,6 +481,25 @@
   color: rgb(var(--color-foreground));
 }
 
+/* ---------------------------------------------------------------------------
+   Load more — drawn only when the payload offers it: a Storefront API token is
+   set, and the section shows fewer looks than exist.
+   --------------------------------------------------------------------------- */
+
+.lookbook__load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 5.6rem;
+}
+
+.lookbook__load-more-error {
+  margin: 0;
+  color: rgba(var(--color-foreground), 0.75);
+  font-size: 1.4rem;
+}
+
 /* Theme editor hint only — never rendered on the live storefront. */
 .lookbook__notice {
   padding: 2.4rem;

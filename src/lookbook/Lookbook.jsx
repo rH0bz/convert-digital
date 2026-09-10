@@ -1,8 +1,11 @@
 /*
- * The renderer. Everything it draws comes from the JSON payload that
- * snippets/lookbook.liquid writes into the page, so there are no fetches here:
- * the data arrives with the HTML, and React draws the markup once lookbook.js
- * has loaded.
+ * The renderer.
+ *
+ * The first looks come from the JSON payload that snippets/lookbook.liquid
+ * writes into the page, so their data arrives with the HTML and React draws
+ * them once lookbook.js has loaded. When the payload offers Load more, further
+ * looks are fetched through the Storefront API and appended after them (see
+ * useLoadMore.js and storefront.js).
  *
  * Each entry names a template, and the component for it comes from
  * ./templates. Per-entry templates are why the container width is set inside
@@ -11,18 +14,22 @@
  */
 
 import { resolveTemplate } from './templates/index.jsx';
+import useLoadMore from './useLoadMore.js';
 
 export default function Lookbook({
   heading,
   headingSize = 'h1',
   subHeading,
   description,
-  entries = [],
+  entries: initialEntries = [],
   showSubHeading = true,
   showDescription = true,
   masonryRowHeight = 120,
   productCtaLabel,
+  loadMore = null,
 }) {
+  const { entries, status, requestMore } = useLoadMore(initialEntries, loadMore);
+
   if (!entries.length) {
     return null;
   }
@@ -89,6 +96,26 @@ export default function Lookbook({
           />
         );
       })}
+
+      {loadMore && status !== 'done' && (
+        <div className="lookbook__load-more page-width">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={requestMore}
+            disabled={status === 'loading'}
+            aria-busy={status === 'loading'}
+          >
+            {status === 'loading' ? loadMore.loadingLabel : loadMore.label}
+          </button>
+
+          {status === 'error' && (
+            <p className="lookbook__load-more-error" role="alert">
+              {loadMore.errorMessage}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "顯示更多內容",
+      "load_more_error": "無法載入更多內容。請再試一次。"
+    },
     "header": {
       "announcement": "公告",
       "menu": "選單",

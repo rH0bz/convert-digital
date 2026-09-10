@@ -294,6 +294,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Rodyti daugiau",
+      "load_more_error": "Nepavyko įkelti daugiau. Bandykite dar kartą."
+    },
     "header": {
       "announcement": "Skelbimas",
       "menu": "Meniu",

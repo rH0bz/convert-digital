@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Több részlet",
+      "load_more_error": "Nem sikerült többet betölteni. Próbálkozz újra."
+    },
     "header": {
       "announcement": "Közlemény",
       "menu": "Menü",

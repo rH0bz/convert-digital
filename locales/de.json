@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Mehr anzeigen",
+      "load_more_error": "Weitere Inhalte konnten nicht geladen werden. Bitte versuche es erneut."
+    },
     "header": {
       "announcement": "Ankündigung",
       "menu": "Menü",

@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Hiển thị thêm",
+      "load_more_error": "Không thể tải thêm. Vui lòng thử lại."
+    },
     "header": {
       "announcement": "Thông báo",
       "menu": "Menu",

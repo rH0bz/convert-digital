@@ -294,6 +294,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Prikaži več",
+      "load_more_error": "Več vsebine ni bilo mogoče naložiti. Poskusite znova."
+    },
     "header": {
       "announcement": "Obvestilo",
       "menu": "Meni",

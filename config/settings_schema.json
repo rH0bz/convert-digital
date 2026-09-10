@@ -1466,5 +1466,20 @@
         "label": "t:settings_schema.customer_accounts.settings.customer_account_menu.label"
       }
     ]
+  },
+  {
+    "name": "Storefront API",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Lets the Lookbook section load more looks than it first shows. In the Headless sales channel, create a storefront, give its public access token the metaobjects and product listings permissions, and paste the token below. Leave it empty to turn Load more off."
+      },
+      {
+        "type": "text",
+        "id": "storefront_api_token",
+        "label": "Public access token",
+        "info": "A public token is made to be used in the browser: it can only read what its permissions allow."
+      }
+    ]
   }
 ]

@@ -294,6 +294,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Показать больше",
+      "load_more_error": "Не удалось загрузить больше. Повторите попытку."
+    },
     "header": {
       "announcement": "Объявление",
       "menu": "Меню",

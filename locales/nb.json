@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Vis mer",
+      "load_more_error": "Kunne ikke laste inn flere. Prøv på nytt."
+    },
     "header": {
       "announcement": "Kunngjøring",
       "menu": "Meny",

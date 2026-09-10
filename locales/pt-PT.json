@@ -285,6 +285,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Mostrar mais",
+      "load_more_error": "Não foi possível carregar mais. Tente novamente."
+    },
     "header": {
       "announcement": "Comunicado",
       "menu": "Menu",

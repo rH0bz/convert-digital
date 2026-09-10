@@ -276,6 +276,10 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Visa mer",
+      "load_more_error": "Det gick inte att läsa in fler. Försök igen."
+    },
     "header": {
       "announcement": "Meddelande",
       "menu": "Meny",

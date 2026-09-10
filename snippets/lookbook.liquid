@@ -45,6 +45,13 @@
   blank — sections/lookbook-related.liquid does, so a product outside every look
   gets no empty padded gap.
 
+  LOAD MORE (Storefront API)
+  When Theme settings > Storefront API holds a public access token, the payload
+  carries what src/lookbook/storefront.js needs to fetch further looks: the API
+  endpoint and token, the visitor's country and language, and the batch size.
+  It is offered only for the full list of entries, and only when more exist
+  than were rendered; otherwise `loadMore` is null and no button is drawn.
+
   WHICH PRODUCTS (per entry)
   Each entry carries its own "Products Source" choice list:
     manual      the products picked in that entry's product list field.
@@ -293,6 +300,47 @@
 ]
 {%- endcapture -%}
 
+{%- liquid
+  # ---- Load more, through the Storefront API ----
+  # Offered only where the page shows fewer looks than exist: the full list of
+  # entries, not a picked list (complete by definition) and not the looks that
+  # feature one product. It also needs the public access token pasted into
+  # Theme settings > Storefront API. Liquid can loop over at most 50 entries;
+  # the API pages through all of them. See src/lookbook/storefront.js.
+  #
+  # Shopify supports each Storefront API version for about a year, so move this
+  # forward before it is retired.
+  assign storefront_api_version = '2026-07'
+  assign storefront_endpoint = 'https://' | append: shop.permanent_domain | append: '/api/' | append: storefront_api_version | append: '/graphql.json'
+  assign storefront_token = settings.storefront_api_token | strip
+
+  assign offer_load_more = false
+  if storefront_token != blank and containing_product == blank and entry_source != 'selected'
+    if lookbook_entries.size > emitted_entries
+      assign offer_load_more = true
+    endif
+  endif
+-%}
+
+{%- capture load_more_json -%}
+  {%- if offer_load_more -%}
+    {
+      "endpoint": {{ storefront_endpoint | json }},
+      "token": {{ storefront_token | json }},
+      "country": {{ localization.country.iso_code | json }},
+      "language": {{ request.locale.iso_code | json }},
+      "rootUrl": {{ routes.root_url | json }},
+      "pageSize": {{ entry_limit | json }},
+      "productsLimit": {{ products_limit | json }},
+      "label": {{ 'sections.lookbook.load_more' | t | json }},
+      "loadingLabel": {{ 'accessibility.loading' | t | json }},
+      "errorMessage": {{ 'sections.lookbook.load_more_error' | t | json }}
+    }
+  {%- else -%}
+    null
+  {%- endif -%}
+{%- endcapture -%}
+
 {%- capture payload -%}
 {
   "heading": {{ heading | default: '' | json }},
@@ -308,6 +356,7 @@
     intentionally blank label in the theme editor spring back to a button.
   {%- endcomment -%}
   "productCtaLabel": {{ product_cta_label | default: '' | json }},
+  "loadMore": {{ load_more_json }},
   "entries": {{ entries_json }}
 }
 {%- endcapture -%}
