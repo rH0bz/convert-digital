@@ -144,7 +144,7 @@
   }
 }
 
-/* A row that fits needs no scroll affordance at all. */
+/* A thin scrollbar for a row that overflows; a row that fits shows none. */
 .lookbook__products--row::-webkit-scrollbar {
   height: 0.4rem;
 }
@@ -155,7 +155,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Layout: Fluid grid — masonry rhythm
+   Layout: Masonry
 
    An auto-fit grid was indistinguishable from the one-row templates whenever an
    entry had no more products than the column cap, which is the common case. So

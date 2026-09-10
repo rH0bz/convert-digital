@@ -101,11 +101,11 @@
   assign masonry_row_height = masonry_row_height | default: 120
   assign show_notices = show_notices | default: true, allow_false: true
 
-  # Counts entries actually emitted. The entries loop can now skip an entry
-  # (it may not feature `containing_product`), so `forloop.last` no longer
-  # marks the last one WRITTEN and cannot drive the commas between them —
-  # a skipped final entry would leave a trailing comma and break the JSON.
-  # Both loops below emit a leading comma from the second item onward instead.
+  # Counts entries actually emitted. The entries loop can skip an entry (it may
+  # not feature `containing_product`), so `forloop.last` does not mark the last
+  # one WRITTEN and cannot drive the commas between them — a skipped final entry
+  # would leave a trailing comma and break the JSON. Both loops below emit a
+  # leading comma from the second item onward instead.
   assign emitted_entries = 0
 
   # Either every Active entry, or only the ones passed in.
@@ -239,46 +239,47 @@
         `forloop.first` is safe here only because no product is ever skipped.
         Add a reason to skip one and this loop must count what it emits, as the
         entries loop does.
+
+        The loop variable is `entry_product`, not `product`: on a product page
+        `product` is the page's own product, passed in as `containing_product`.
       {%- endcomment -%}
-      {%- for product in entry_products limit: entry_products_limit -%}
+      {%- for entry_product in entry_products limit: entry_products_limit -%}
         {%- unless forloop.first -%},{%- endunless -%}
         {
-          "id": {{ product.id | json }},
-          "title": {{ product.title | json }},
-          "url": {{ product.url | json }},
+          "id": {{ entry_product.id | json }},
+          "title": {{ entry_product.title | json }},
+          "url": {{ entry_product.url | json }},
           {%- comment -%}
-            A product carries only what the cards actually draw: a title, a link
-            and its pictures. Price, compare-at price and availability used to be
-            serialised here and were dropped once the overlay stopped showing
-            them — the shape of the payload should say what the section renders.
+            A product carries only what the cards draw: a title, a link and its
+            pictures. Price and availability are left out because no card shows
+            them.
 
-            To bring price back, add a price member here rather than reaching
-            for it in the component alone — it is not in the payload to reach
-            for. The `money` filter is required when you do, because the shop's
-            currency format lives in Liquid and is not reachable from
-            JavaScript: pipe product.price through `money | strip_html | json`.
+            To show price, add a member here — the component has nothing to
+            read otherwise — and format it in Liquid, because the shop's
+            currency format is not reachable from JavaScript:
+            `entry_product.price | money | strip_html | json`.
           {%- endcomment -%}
           {%- comment -%}
             An array even when it holds one image, so every template reads
-            products the same way. `product.images` is ordered as the merchant
-            arranged the media in admin, and its first entry is the featured
+            products the same way. A product's images are ordered as the
+            merchant arranged the media in admin, and the first is the featured
             image. A product with no media at all yields [], which the renderer
             draws as the empty placeholder.
           {%- endcomment -%}
           "images": [
-            {%- for p_image in product.images limit: product_image_limit -%}
-              {%- capture p_srcset -%}
-                {{ p_image | image_url: width: 300 }} 300w,
-                {{ p_image | image_url: width: 500 }} 500w,
-                {{ p_image | image_url: width: 800 }} 800w,
-                {{ p_image | image_url: width: 1200 }} 1200w
+            {%- for product_image in entry_product.images limit: product_image_limit -%}
+              {%- capture product_image_srcset -%}
+                {{ product_image | image_url: width: 300 }} 300w,
+                {{ product_image | image_url: width: 500 }} 500w,
+                {{ product_image | image_url: width: 800 }} 800w,
+                {{ product_image | image_url: width: 1200 }} 1200w
               {%- endcapture -%}
               {
-                "src": {{ p_image | image_url: width: 500 | json }},
-                "srcset": {{ p_srcset | strip_newlines | strip | json }},
-                "alt": {{ p_image.alt | default: product.title | default: '' | json }},
-                "width": {{ p_image.width | json }},
-                "height": {{ p_image.height | json }}
+                "src": {{ product_image | image_url: width: 500 | json }},
+                "srcset": {{ product_image_srcset | strip_newlines | strip | json }},
+                "alt": {{ product_image.alt | default: entry_product.title | default: '' | json }},
+                "width": {{ product_image.width | json }},
+                "height": {{ product_image.height | json }}
               }{%- unless forloop.last -%},{%- endunless -%}
             {%- endfor -%}
           ]

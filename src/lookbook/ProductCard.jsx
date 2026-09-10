@@ -1,11 +1,12 @@
 /*
- * One product tile. Shared by every template, so a change to how a product
- * reads applies to Default, Full width and Masonry at once.
+ * One product tile, shared by Default, Full width and Masonry, so a change to
+ * how a product reads applies to all three at once. Masonry - Product Images
+ * draws a group of images per product and has its own markup.
  *
  * The card is the image: the title and the call to action sit over it rather
  * than below, so the whole tile is media and the layouts stay on a clean grid.
- * Price and availability are deliberately not shown — the payload still carries
- * them, so putting either back is a markup change and nothing more.
+ * Price and availability are deliberately not shown, and are not in the
+ * payload either — see snippets/lookbook.liquid before adding them.
  *
  * `sizes` differs per template — a one-row layout and a masonry grid hand the
  * browser very different widths — so each template passes its own rather than

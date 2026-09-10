@@ -1,16 +1,13 @@
 /*
- * The renderer. Everything it draws comes from the payload that
- * snippets/lookbook.liquid serialized — there are no fetches here, so the
- * section is fully server-rendered as far as SEO and first paint go, and React
- * only takes over the markup.
+ * The renderer. Everything it draws comes from the JSON payload that
+ * snippets/lookbook.liquid writes into the page, so there are no fetches here:
+ * the data arrives with the HTML, and React draws the markup once lookbook.js
+ * has loaded.
  *
- * Prices arrive pre-formatted as strings, because the currency format of the
- * shop lives in Liquid and is not available to JavaScript.
- *
- * This file no longer draws an entry itself: each entry names a template and
- * the component for it comes from ./templates. Per-entry templates are why the
- * container width is set inside each template rather than here — a Full width
- * look has to escape the container its neighbours sit in.
+ * Each entry names a template, and the component for it comes from
+ * ./templates. Per-entry templates are why the container width is set inside
+ * each template rather than here — a Full width look has to escape the
+ * container its neighbours sit in.
  */
 
 import { resolveTemplate } from './templates/index.jsx';

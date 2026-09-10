@@ -36,7 +36,7 @@ function readPayload(el) {
     return JSON.parse(dataNode.textContent);
   } catch (error) {
     // Almost always an unescaped character from Liquid — check that every field
-    // in sections/lookbook.liquid is piped through the `json` filter.
+    // in snippets/lookbook.liquid is piped through the `json` filter.
     console.error('[lookbook] could not parse JSON payload', error);
     return null;
   }
