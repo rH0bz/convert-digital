@@ -1,0 +1,212 @@
+{%- comment -%}
+  ============================================================================
+  Lookbook section.
+
+  A thin wrapper: it owns the theme-editor settings, the colour scheme and the
+  padding, then hands everything to snippets/lookbook.liquid, which owns the
+  field keys and the payload. That split is what lets a lookbook be rendered
+  outside this section — see the snippet's header for its parameters.
+
+  Note there is no `page-width` on the wrapper below. Container width is set per
+  entry by the template component, because the Full width template has to escape
+  the container that Default and Masonry sit inside.
+  ============================================================================
+{%- endcomment -%}
+
+{{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
+
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<div class="color-{{ section.settings.color_scheme }} gradient">
+  <div class="section-{{ section.id }}-padding isolate">
+    {%- render 'lookbook',
+      uid: section.id,
+      entry_source: section.settings.entry_source,
+      entries: section.settings.entries,
+      entries_limit: section.settings.entries_limit,
+      products_limit: section.settings.products_limit,
+      heading: section.settings.heading,
+      heading_size: section.settings.heading_size,
+      sub_heading: section.settings.sub_heading,
+      description: section.settings.description,
+      show_sub_heading: section.settings.show_sub_heading,
+      show_description: section.settings.show_description,
+      masonry_row_height: section.settings.masonry_row_height,
+      product_cta_label: section.settings.product_cta_label
+    -%}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Lookbook",
+  "class": "section",
+  "tag": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "select",
+      "id": "entry_source",
+      "options": [
+        { "value": "all", "label": "All entries" },
+        { "value": "selected", "label": "Selected entries" }
+      ],
+      "default": "all",
+      "label": "Entries to show",
+      "info": "All entries follows the order set in Settings > Custom data. Selected lets you pick and reorder them here."
+    },
+    {
+      "type": "metaobject_list",
+      "id": "entries",
+      "metaobject_type": "lookbook",
+      "label": "Entries (used when Entries to show is Selected)",
+      "info": "Drag to reorder. Only Active entries can be picked."
+    },
+    {
+      "type": "range",
+      "id": "entries_limit",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "default": 6,
+      "label": "Maximum entries to show",
+      "info": "Only applies when Entries to show is All entries. A picked list shows everything you picked."
+    },
+    {
+      "type": "header",
+      "content": "Section header"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "default": "Lookbook",
+      "label": "Heading"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "options": [
+        { "value": "h2", "label": "Small" },
+        { "value": "h1", "label": "Medium" },
+        { "value": "h0", "label": "Large" }
+      ],
+      "default": "h1",
+      "label": "Heading size"
+    },
+    {
+      "type": "text",
+      "id": "sub_heading",
+      "label": "Sub heading",
+      "info": "Sits under the section heading. This is the whole section's sub heading, not the one on each look."
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Description",
+      "info": "Sits under the sub heading, held to a readable width rather than the full container."
+    },
+    {
+      "type": "header",
+      "content": "Entry content"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sub_heading",
+      "default": true,
+      "label": "Show sub heading on each look"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "default": true,
+      "label": "Show description on each look"
+    },
+    {
+      "type": "text",
+      "id": "product_cta_label",
+      "default": "Shop now",
+      "label": "Product button label",
+      "info": "Shown over each product image, under the product title. Leave empty to show the title alone."
+    },
+    {
+      "type": "range",
+      "id": "products_limit",
+      "min": 1,
+      "max": 24,
+      "step": 1,
+      "default": 12,
+      "label": "Maximum products per look",
+      "info": "Applies to both product sources — hand-picked lists and collections alike. Products past this count are cut off with nothing shown in their place, so keep it at or above the longest list you have picked."
+    },
+    {
+      "type": "header",
+      "content": "Masonry templates"
+    },
+    {
+      "type": "paragraph",
+      "content": "Masonry lays products out in a rhythm of alternating wide and narrow cards at two different heights. Masonry - Product Images uses the same rhythm, but each cell holds a group of up to 3 images from one product; a product with fewer images shows a smaller group. Default and Full width keep their products on a single row and ignore the setting below."
+    },
+    {
+      "type": "range",
+      "id": "masonry_row_height",
+      "min": 60,
+      "max": 220,
+      "step": 10,
+      "unit": "px",
+      "default": 120,
+      "label": "Masonry row height",
+      "info": "Scales both Masonry templates: cards are 3 or 4 of these tall, so 120px gives roughly 380px and 510px cards. Phones use 75% of this."
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Lookbook"
+    }
+  ]
+}
+{% endschema %}
