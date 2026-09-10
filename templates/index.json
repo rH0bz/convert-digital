@@ -62,7 +62,7 @@
         "show_sub_heading": true,
         "show_description": true,
         "product_cta_label": "Shop now",
-        "products_limit": 12,
+        "products_limit": 6,
         "masonry_row_height": 120,
         "color_scheme": "",
         "padding_top": 36,
