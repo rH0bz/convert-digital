@@ -1,7 +1,7 @@
 # Convert — Shopify theme
 
 A Dawn-based Shopify theme with a **React-rendered Lookbook** driven by a
-`lookbook` metaobject.
+`lookbook` metaobject and loaded through the **Storefront API**.
 
 Everything except the Lookbook is stock Dawn. If you are only touching Liquid
 elsewhere in the theme, you can ignore the build step entirely — it exists
@@ -16,6 +16,9 @@ solely to compile `src/lookbook/` into `assets/lookbook.js`.
 | Node | 22.12 | Anything supporting ES2020 output works |
 | npm | 10.9 | |
 | Shopify CLI | 4.8 | `shopify theme dev` / `theme check` / `theme push` |
+
+The lookbook also needs a **Storefront API public access token** in the theme
+settings — see *Storefront API*.
 
 ---
 
@@ -43,60 +46,66 @@ bundles production React. Never push a watch-mode bundle.
 
 ## How the Lookbook works
 
-The first looks need no client-side fetching. Liquid writes the lookbook data
-into a JSON script tag as the page renders, and React draws the markup from it
-once `lookbook.js` loads. The data arrives with the HTML — no API request and no
-access token — but the lookbook itself appears after the script runs rather
-than in the initial HTML. Further looks can be fetched on demand through the
-Storefront API (see *Load more*).
+Liquid decides **which** looks a section shows; the Storefront API loads
+**everything about them**.
 
 ```
   metaobject entries
           |
           v
-  snippets/lookbook.liquid        <- field keys, product resolution, payload
-          |
+  snippets/lookbook.liquid        <- which entries (ids, in order), settings,
+          |                          Storefront API endpoint and token
           |  <script type="application/json" id="LookbookData-{uid}">
           |  <div data-lookbook="LookbookData-{uid}">
           v
   src/lookbook/index.jsx          <- finds those pairs, mounts React
           |
           v
-  src/lookbook/Lookbook.jsx       <- section header, one template per entry,
-          |                          Load more button
+  src/lookbook/Lookbook.jsx       <- section header, loading state, Show more
+          |
+          v
+  src/lookbook/useLookbookEntries.js + storefront.js
+          |                       <- loads the looks by id through the
+          |                          Storefront API, then page by page
           v
   src/lookbook/templates/         <- Default | Full width | Masonry | Masonry+Images
 ```
 
-Two consequences worth internalising:
+As soon as the section mounts, `storefront.js` fetches the looks by id —
+titles, sub headings, descriptions, templates, products and images — with a
+`nodes(ids:)` query, which returns them in the order Liquid chose. The section
+header comes from Liquid and shows straight away; the looks appear once the
+request returns, with a loading message until then.
 
-- **Prices and any money value must be formatted in Liquid.** The shop's
-  currency format is not reachable from JavaScript.
+Three consequences worth internalising:
+
+- **No token, no lookbook.** Metaobjects cannot be read through the Storefront
+  API without one, so without a token the lookbook outputs nothing on the
+  storefront and explains why in the theme editor.
 - **A malformed payload blanks the whole section** with nothing but a console
   error. JSON validity is the failure mode to guard (see *Invariants*).
+- **Money needs formatting in the browser.** Should prices ever be shown, the
+  API returns an amount and a currency code; format them with
+  `Intl.NumberFormat` in the visitor's locale, not by hand.
 
 ---
 
 ## Design decisions
 
-- **Shopify-native only.** A metaobject holds the looks, Liquid and the
-  Storefront API read them, and sections expose the settings in the theme
-  editor. React is compiled into a theme asset; there is no app, app proxy or
-  external service.
-- **Liquid first, the Storefront API on demand.** Liquid reads the metaobjects
-  during the page render, gated by the **Storefronts** access setting on the
-  definition, so the first looks need no token and no extra request. Liquid can
-  only loop over 50 entries, though, so the Load more button fetches further
-  looks through the Storefront API — the one place it does something Liquid
-  cannot. Product pages stay on Liquid: the API has no way to ask which looks
-  contain a given product.
+- **Shopify-native only.** A metaobject holds the looks, the Storefront API
+  delivers them, and sections expose the settings in the theme editor. React is
+  compiled into a theme asset; there is no app, app proxy or external service.
+- **The Storefront API loads every look; Liquid only chooses which.** Liquid
+  keeps that choice because only it can make it: a picked list is a section
+  setting, admin order is not an order the API can sort by, and the API has no
+  way to ask which looks contain a given product. It writes ids, never content.
 - **The metaobject is the relationship.** A product page finds its looks from
   the products each look already lists, so there is no second field on the
   product to keep in sync.
-- **One payload shape, two sources.** `snippets/lookbook.liquid` and
-  `src/lookbook/storefront.js` both produce the same entry shape, so the
-  templates never know whether a look came from Liquid or the API.
-- **One snippet, two sections.** The snippet owns the field keys and the
+- **One loader for every section.** The homepage list, a picked list and a
+  product page's matches all load the same way — ids first, in order — so
+  there is one code path to test and maintain.
+- **One snippet, two sections.** The snippet owns the entry choice and the
   payload; the sections own only their settings. Section schemas cannot share
   settings, so the two are kept identical by hand and checked by `npm test`.
 
@@ -108,20 +117,21 @@ Two consequences worth internalising:
 config/
   settings_schema.json       Theme settings > Storefront API (the access token)
 locales/
-  *.json                     sections.lookbook.* — Load more button text
+  *.json                     sections.lookbook.* — Show more and error text
 sections/
   lookbook.liquid            Lookbook section — theme editor settings only
   lookbook-related.liquid    "Related lookbook" — product pages
 snippets/
-  lookbook.liquid            THE reusable entry point: field keys + payload
+  lookbook.liquid            THE reusable entry point: which entries + payload
 assets/
   section-lookbook.css       All Lookbook CSS, hand-written
   lookbook.js                GENERATED — do not edit, but DO commit it
 src/lookbook/
   index.jsx                  Mount layer + theme-editor re-render handling
-  Lookbook.jsx               Section header, entries, Load more button
-  storefront.js              Storefront API query, response mapping, pager
-  useLoadMore.js             State behind the Load more button
+  Lookbook.jsx               Section header, loading state, looks, Show more
+  useLookbookEntries.js      Loading state: first batch on mount, then Show more
+  storefront.js              Storefront API queries, response mapping, loader
+  translations.js            Undoes the HTML escaping Shopify's t filter adds
   ProductCard.jsx            One product tile (image + overlay)
   RichText.jsx               Renders Shopify's rich-text document tree
   templates/
@@ -132,8 +142,9 @@ src/lookbook/
     MasonryGrid.jsx          Masonry rhythm, one image per product
     MasonryProductImages.jsx Masonry rhythm, a group of 3 images per product
 tests/
-  lookbook.test.mjs          Liquid render tests for the payload
-  storefront.test.mjs        Storefront API mapping and pager tests
+  lookbook.test.mjs          Liquid render tests: which looks, and the payload
+  storefront.test.mjs        Storefront API requests, mapping and loader
+  translations.test.mjs      Label unescaping
 build.mjs                    esbuild config (add an entry point per React section)
 ```
 
@@ -160,13 +171,13 @@ storefront and will not render.
 | Collection | `collection` | Collection |
 | Products Source | `products_source` | Choice list |
 
-Keys are declared once for Liquid, at the top of `snippets/lookbook.liquid`, and
-once for the Storefront API, in `FIELD_KEYS` in `src/lookbook/storefront.js`.
-**Renaming a field's label in admin does not rename its key** — that is why the
-products field is resolved from two candidate keys, and why the misspelling in
+Keys are declared in two places: at the top of `snippets/lookbook.liquid`, where
+Liquid uses them to match looks to a product, and in `FIELD_KEYS` in
+`src/lookbook/storefront.js`, where the API query reads them. **Renaming a
+field's label in admin does not rename its key** — that is why the products
+field is resolved from two candidate keys, and why the misspelling in
 `discreption` is load-bearing rather than a typo to fix. If a key is wrong the
-section renders empty text and the theme editor shows a notice naming the keys
-it looked for.
+theme editor shows a notice naming the keys it looked for.
 
 ### Products Source
 
@@ -197,8 +208,10 @@ on each entry.
 ## The two sections
 
 **Lookbook** — pick entries manually or show all Active ones, in the order set
-in Settings → Custom data. Each entry uses its own Template. Not available on
-product templates, where Related lookbook takes its place.
+in Settings → Custom data. With **All entries**, **Maximum entries to show**
+looks load first and a **Show more** button loads the rest in batches of that
+size; a picked list loads everything picked. Each entry uses its own Template.
+Not available on product templates, where Related lookbook takes its place.
 
 **Related lookbook** (product templates only; on `product.json` by default) —
 shows the looks that feature the product being viewed, up to **Maximum entries
@@ -210,23 +223,13 @@ collection, which stays correct past the 50 products Liquid returns. Each look
 is drawn whole, with its own Template, exactly as the Lookbook section draws it.
 Every other setting is identical to Lookbook's (see *Invariants*).
 
-When no look matches, the section outputs **nothing** — no padded wrapper and no
-`lookbook.js` — so it is safe to leave on the product template for every
-product. In the theme editor it shows a notice explaining why instead.
+Both sections output **nothing** — no padded wrapper and no `lookbook.js` — when
+there is nothing to load: no token, no entries, or no look featuring the
+product. In the theme editor they show a notice explaining why instead.
 
 ---
 
-## Load more (Storefront API)
-
-The Lookbook section shows a **Show more** button under its looks when:
-
-- a public access token is saved in **Theme settings → Storefront API**,
-- Entries to show is **All entries** (a picked list is already complete), and
-- more entries exist than **Maximum entries to show** lets the section render.
-
-Each click fetches the next batch — the same size as Maximum entries to show —
-through the Storefront API and draws it with the same templates. Product pages
-never show the button.
+## Storefront API
 
 ### Setup
 
@@ -235,24 +238,31 @@ never show the button.
    (`unauthenticated_read_metaobjects`) and **product listings**
    (`unauthenticated_read_product_listings`).
 3. Paste its **public access token** into the theme editor under
-   **Theme settings → Storefront API**.
+   **Theme settings → Storefront API**. The token is saved per theme, so paste
+   it again in any theme this code is pushed to.
 
 A public token is made to be used in the browser: it can only read what its
 permissions allow. It lives in the store's theme settings, not in this
-repository. Metaobjects cannot be read through the Storefront API without one.
+repository.
 
 If looks load but arrive without products, check that those products are
 available on the Headless channel.
 
-### How it fits together
+### How loading works
 
-`snippets/lookbook.liquid` adds a `loadMore` object to the payload: the endpoint
-(`https://{shop}.myshopify.com/api/2026-07/graphql.json`), the token, the
-visitor's country and language (sent with `@inContext`), the store's root URL
-for product links, and the batch size. It is `null` whenever the button does
-not apply. `src/lookbook/storefront.js` runs the query, maps each metaobject into
-the entry shape Liquid writes, and pages through the results;
-`src/lookbook/useLoadMore.js` holds the state behind the button.
+`snippets/lookbook.liquid` writes a `source` object into the payload:
+
+| Field | Meaning |
+| --- | --- |
+| `storefront` | Endpoint (`https://{shop}.myshopify.com/api/2026-07/graphql.json`), token, the visitor's country and language (sent with `@inContext`), and the root URL for product links |
+| `entryIds` | The looks to show, as metaobject GIDs, in order |
+| `pageSize` | How many load at a time: Maximum entries to show for All entries, everything for a picked list or a product page |
+| `productsLimit` | Maximum products per look |
+| `continuePaging` | `true` when All entries reached Liquid's 50-entry cap — Show more then carries on through the API's own `metaobjects` pages, skipping looks already shown |
+
+`createLookbookLoader` in `src/lookbook/storefront.js` hands out one batch per
+call: ids first, then pages. `useLookbookEntries.js` asks for the first batch
+on mount and one more per Show more click.
 
 Shopify supports each Storefront API version for about a year. The version is
 set once, as `storefront_api_version` in `snippets/lookbook.liquid`.
@@ -282,7 +292,9 @@ drift.
    container its neighbours sit in.
 2. Add one line to `TEMPLATES` in `templates/index.jsx`.
 3. Add the choice to the metaobject definition in admin.
-4. `npm run build`.
+4. If it draws more than one image per product, update `imagesPerProduct` in
+   `storefront.js`.
+5. `npm run build`.
 
 Add responsive arrangement in CSS keyed off a class or `data-` attribute rather
 than computing it in JS — an inline style cannot carry a media query.
@@ -291,22 +303,22 @@ than computing it in JS — an inline style cannot carry a media query.
 
 ## Known limitations
 
-- **Liquid sees the first 50 lookbook entries.** Liquid loops over at most 50
-  entries of a metaobject definition. Load more reaches the rest on the
-  Lookbook section, but product pages and the first render only consider the
-  first 50, in admin order.
-- **Load more follows API order.** The Storefront API sorts metaobjects only by
-  ID or update time, not by the order set in admin. Looks added by Load more
-  follow ID order; looks already on the page are skipped.
+- **The looks are not in the initial HTML.** They arrive from the Storefront
+  API after `lookbook.js` runs, so they appear a moment after the page, and
+  crawlers that do not run JavaScript do not see them.
+- **The lookbook needs a token.** Without one, or with one missing a
+  permission, no look is shown.
+- **Liquid lists at most 50 entries.** Past that, All entries carries on through
+  the API in ID order rather than admin order, and product pages only consider
+  the first 50 entries.
 - **Tablets keep the single row.** Between 750px and 990px, Default and Full
   width stay on one row, so a look with four or more products can scroll
   sideways.
 - **Theme editor text is English only.** Section and theme settings use plain
   strings rather than `t:` keys in `locales/*.schema.json`.
-- **The Load more error message was translated for this theme.** The button
-  reuses Dawn's own "Show more" in every language; the error message's
-  translations were not written by Shopify, so review them before launching in
-  another market.
+- **Some storefront text was translated for this theme.** Show more reuses
+  Dawn's own "Show more" in every language; the two error messages were not
+  translated by Shopify, so review them before launching in another market.
 
 ---
 
@@ -326,12 +338,11 @@ it because its lexer never unescapes string literals. Do not port that line to a
 templating language that *does* unescape (liquidjs) — the two halves collapse to
 the same value, `replace` becomes a no-op, and the guard silently disappears.
 
-**Commas in the payload are leading, not trailing.** Entries can be skipped (a
+**Commas in the payload are leading, not trailing.** An entry can be skipped (a
 look may not feature the related product), so `forloop.last` marks the last
-entry *examined*, not the last *written*; the entries loop counts what it emits.
+entry *examined*, not the last *written*; the id loop counts what it emits.
 Reintroducing `unless forloop.last` there produces a trailing comma and blanks
-the section. Products are never skipped, so their loop uses `limit:` with
-`unless forloop.first` — add a reason to skip one and it must count too.
+the section.
 
 **Lookbook and Related lookbook have identical settings.** Apart from the entry
 picker, and Maximum entries to show defaulting to 2 on product pages, the two
@@ -339,15 +350,22 @@ schemas are copies of each other. That is a product requirement, not duplication
 to refactor away — section schemas cannot share settings, so change both
 (`npm test` fails if they drift).
 
-**The Storefront API mapping must produce the Liquid payload's shape.**
-`toEntry` in `src/lookbook/storefront.js` mirrors what `snippets/lookbook.liquid`
-writes for each entry, including the rule that a Collection look with no
-collection has no products and the gate that sends three images per product
-only to Masonry - Product Images. Change one, change the other.
+**Field keys live in two places.** Liquid matches looks to products with the
+keys in `snippets/lookbook.liquid`; the API query reads the keys in
+`FIELD_KEYS` in `src/lookbook/storefront.js`. Change one, change the other.
+
+**A Collection look with no collection has no products.** Liquid does not match
+it to a product page, and `toEntry` does not fall back to its picked list.
+Both sides must agree, or a look matched by Liquid would load empty.
 
 **Every storefront locale file needs the same keys.** Theme Check's
 MatchingTranslations reports an error for a key that exists in
 `en.default.json` but not in another locale. Add new text to all of them.
+
+**Labels reach the payload HTML-escaped.** Shopify's `t` filter escapes
+translations, so "Couldn't" arrives as `Couldn&#39;t`. `Lookbook.jsx` undoes
+that with `translations.js` before rendering the labels as text. Rendering
+them as HTML instead would open an injection point.
 
 **Never set a used CSS custom property inline from a setting.** Inline styles
 outrank media queries. The masonry row height is written to
@@ -358,28 +376,27 @@ so the mobile override is still reachable.
 element style context, so a custom property there never resolves and the whole
 value silently falls back to `100vw`, loading oversized images. Use `vw` maths.
 
-**Only the product-images template ships 3 images per product.** The Liquid gate
-matches the raw template choice loosely; guessing low is safe because a group
-just shrinks. Removing the gate roughly doubles the payload for every other
-template.
+**Only the product-images template gets 3 images per product.** The query asks
+for three; `imagesPerProduct` in `storefront.js` keeps one for every other
+template, so the rest do not carry images they never draw.
 
 ---
 
 ## Verifying changes
 
 ```bash
-npm test                     # payload render tests + Storefront API unit tests
+npm test                     # Liquid payload tests + Storefront API unit tests
 npm run build                # must succeed
 shopify theme check          # no lookbook file may appear in the output
 ```
 
-`npm test` runs two files. `tests/lookbook.test.mjs` covers what the other two
-commands cannot see: a malformed JSON payload, which blanks the section with
-only a console error, the product page rules and when Load more is offered. It
-renders through liquidjs with Shopify's filters stubbed, so it does not cover
-the closing-script guard (see *Invariants*). `tests/storefront.test.mjs` checks
-the Storefront API mapping and the Load more pager with hand-written responses,
-without any network.
+`npm test` runs two files. `tests/lookbook.test.mjs` renders both sections
+through liquidjs with Shopify's filters stubbed and checks what the other two
+commands cannot see: a malformed JSON payload, which looks each section lists,
+and when nothing is output. It does not cover the closing-script guard (see
+*Invariants*). `tests/storefront.test.mjs` checks the requests, the mapping into
+the templates' entry shape, and the loader's batching, paging and retries, with
+hand-written responses and no network.
 
 `theme check` also reports a few warnings in stock Dawn files (9 with Shopify
 CLI 4.8). Those are not ours; what matters is that **no lookbook file appears in
