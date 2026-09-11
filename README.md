@@ -56,26 +56,25 @@ Liquid decides **which** looks a section shows; the Storefront API loads
   snippets/lookbook.liquid        <- which entries (ids, in order), settings,
           |                          Storefront API endpoint and token
           |  <script type="application/json" id="LookbookData-{uid}">
-          |  <div data-lookbook="LookbookData-{uid}">
+          |  <div data-lookbook="LookbookData-{uid}">   <- skeleton placeholders
           v
-  src/lookbook/index.jsx          <- finds those pairs, mounts React
+  src/lookbook/index.jsx          <- loads the first looks, then mounts React
           |
           v
-  src/lookbook/Lookbook.jsx       <- section header, loading state, Show more
+  src/lookbook/storefront.js      <- Storefront API: looks by id, then page by page
           |
           v
-  src/lookbook/useLookbookEntries.js + storefront.js
-          |                       <- loads the looks by id through the
-          |                          Storefront API, then page by page
+  src/lookbook/Lookbook.jsx       <- section header, looks, Show more
+          |
           v
   src/lookbook/templates/         <- Default | Full width | Masonry | Masonry+Images
 ```
 
-As soon as the section mounts, `storefront.js` fetches the looks by id —
-titles, sub headings, descriptions, templates, products and images — with a
-`nodes(ids:)` query, which returns them in the order Liquid chose. The section
-header comes from Liquid and shows straight away; the looks appear once the
-request returns, with a loading message until then.
+From the first paint, the mount point shows skeleton placeholders that Liquid
+drew — one per look in the first batch. `index.jsx` fetches those looks by id
+(titles, sub headings, descriptions, templates, products and images) with a
+`nodes(ids:)` query, which returns them in the order Liquid chose, and only then
+mounts React, which replaces the placeholders with the looks in a single render.
 
 Three consequences worth internalising:
 
@@ -99,6 +98,10 @@ Three consequences worth internalising:
   keeps that choice because only it can make it: a picked list is a section
   setting, admin order is not an order the API can sort by, and the API has no
   way to ask which looks contain a given product. It writes ids, never content.
+- **A skeleton from Liquid, not from React.** Liquid knows how many looks the
+  first batch holds, so it draws that many placeholders into the HTML. They are
+  on screen from the first paint, before any JavaScript runs, and the markup
+  lives in one place.
 - **The metaobject is the relationship.** A product page finds its looks from
   the products each look already lists, so there is no second field on the
   product to keep in sync.
@@ -123,13 +126,14 @@ sections/
   lookbook-related.liquid    "Related lookbook" — product pages
 snippets/
   lookbook.liquid            THE reusable entry point: which entries + payload
+  lookbook-skeleton.liquid   Placeholder looks, shown until the looks load
 assets/
   section-lookbook.css       All Lookbook CSS, hand-written
   lookbook.js                GENERATED — do not edit, but DO commit it
 src/lookbook/
-  index.jsx                  Mount layer + theme-editor re-render handling
-  Lookbook.jsx               Section header, loading state, looks, Show more
-  useLookbookEntries.js      Loading state: first batch on mount, then Show more
+  index.jsx                  Mount layer: loads the first looks, mounts React
+  Lookbook.jsx               Section header, looks, Show more
+  useLookbookEntries.js      The looks on the page and the Show more state
   storefront.js              Storefront API queries, response mapping, loader
   translations.js            Undoes the HTML escaping Shopify's t filter adds
   ProductCard.jsx            One product tile (image + overlay)
@@ -142,7 +146,7 @@ src/lookbook/
     MasonryGrid.jsx          Masonry rhythm, one image per product
     MasonryProductImages.jsx Masonry rhythm, a group of 3 images per product
 tests/
-  lookbook.test.mjs          Liquid render tests: which looks, and the payload
+  lookbook.test.mjs          Liquid render tests: which looks, payload, skeleton
   storefront.test.mjs        Storefront API requests, mapping and loader
   translations.test.mjs      Label unescaping
 build.mjs                    esbuild config (add an entry point per React section)
@@ -261,8 +265,9 @@ available on the Headless channel.
 | `continuePaging` | `true` when All entries reached Liquid's 50-entry cap — Show more then carries on through the API's own `metaobjects` pages, skipping looks already shown |
 
 `createLookbookLoader` in `src/lookbook/storefront.js` hands out one batch per
-call: ids first, then pages. `useLookbookEntries.js` asks for the first batch
-on mount and one more per Show more click.
+call: ids first, then pages. `index.jsx` asks it for the first batch before
+mounting React, and `useLookbookEntries.js` asks for one more per Show more
+click.
 
 Shopify supports each Storefront API version for about a year. The version is
 set once, as `storefront_api_version` in `snippets/lookbook.liquid`.
@@ -303,14 +308,17 @@ than computing it in JS — an inline style cannot carry a media query.
 
 ## Known limitations
 
-- **The looks are not in the initial HTML.** They arrive from the Storefront
-  API after `lookbook.js` runs, so they appear a moment after the page, and
-  crawlers that do not run JavaScript do not see them.
+- **The looks are not in the initial HTML.** Only their placeholders are. The
+  looks arrive from the Storefront API after `lookbook.js` runs, so crawlers
+  that do not run JavaScript do not see them.
 - **The lookbook needs a token.** Without one, or with one missing a
   permission, no look is shown.
 - **Liquid lists at most 50 entries.** Past that, All entries carries on through
   the API in ID order rather than admin order, and product pages only consider
   the first 50 entries.
+- **The skeleton is a general shape.** It shows a title, a line of text and a
+  row of cards per look, whatever template the look turns out to use, so a
+  Masonry look settles into a different height when it arrives.
 - **Tablets keep the single row.** Between 750px and 990px, Default and Full
   width stay on one row, so a look with four or more products can scroll
   sideways.
@@ -343,6 +351,12 @@ look may not feature the related product), so `forloop.last` marks the last
 entry *examined*, not the last *written*; the id loop counts what it emits.
 Reintroducing `unless forloop.last` there produces a trailing comma and blanks
 the section.
+
+**React mounts only after the first looks load.** `createRoot` clears whatever
+is inside the mount point on its first render. Mounting straight away would
+wipe the skeleton the moment the script runs and leave the section blank while
+the request is out; `index.jsx` waits for the looks so the placeholders and the
+looks swap in one render.
 
 **Lookbook and Related lookbook have identical settings.** Apart from the entry
 picker, and Maximum entries to show defaulting to 2 on product pages, the two
@@ -390,13 +404,14 @@ npm run build                # must succeed
 shopify theme check          # no lookbook file may appear in the output
 ```
 
-`npm test` runs two files. `tests/lookbook.test.mjs` renders both sections
+`npm test` runs three files. `tests/lookbook.test.mjs` renders both sections
 through liquidjs with Shopify's filters stubbed and checks what the other two
 commands cannot see: a malformed JSON payload, which looks each section lists,
-and when nothing is output. It does not cover the closing-script guard (see
-*Invariants*). `tests/storefront.test.mjs` checks the requests, the mapping into
-the templates' entry shape, and the loader's batching, paging and retries, with
-hand-written responses and no network.
+the skeleton, and when nothing is output. It does not cover the closing-script
+guard (see *Invariants*). `tests/storefront.test.mjs` checks the requests, the
+mapping into the templates' entry shape, and the loader's batching, paging and
+retries, with hand-written responses and no network. `tests/translations.test.mjs`
+checks the label unescaping.
 
 `theme check` also reports a few warnings in stock Dawn files (9 with Shopify
 CLI 4.8). Those are not ours; what matters is that **no lookbook file appears in
