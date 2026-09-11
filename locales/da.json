@@ -276,6 +276,11 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Vis mere",
+      "load_more_error": "Kunne ikke indlæse flere. Prøv igen.",
+      "load_error": "Lookbooken kunne ikke indlæses. Prøv igen."
+    },
     "header": {
       "announcement": "Meddelelse",
       "menu": "Menu",

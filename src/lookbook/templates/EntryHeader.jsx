@@ -1,15 +1,9 @@
-/*
- * The title / sub heading / description block of a look.
- *
- * Shared by every template so the text side of an entry stays identical across
- * layouts — only the product arrangement and the container width are what a
- * template actually changes.
- */
+// A look's title, sub heading and description. Shared by every template.
 
 import RichText from '../RichText.jsx';
 
 export default function EntryHeader({ entry, showSubHeading, showDescription }) {
-  const { title, subHeading, descriptionTree, descriptionHtml } = entry;
+  const { title, subHeading, descriptionTree } = entry;
 
   return (
     <header className="lookbook__entry-header">
@@ -20,11 +14,7 @@ export default function EntryHeader({ entry, showSubHeading, showDescription }) 
       )}
 
       {showDescription && (
-        <RichText
-          tree={descriptionTree}
-          html={descriptionHtml}
-          className="lookbook__entry-description rte"
-        />
+        <RichText tree={descriptionTree} className="lookbook__entry-description rte" />
       )}
     </header>
   );

@@ -1,0 +1,27 @@
+{%- comment -%}
+  Placeholder looks shown inside the lookbook until the Storefront API responds.
+  Rendered by snippets/lookbook.liquid; React replaces it once the looks load.
+  Params: looks (how many placeholders), show_header (heading placeholder).
+{%- endcomment -%}
+
+<div class="lookbook lookbook--skeleton">
+  <p class="visually-hidden" role="status">{{ 'accessibility.loading' | t }}</p>
+
+  {%- if show_header -%}
+    <div class="lookbook__header page-width" aria-hidden="true">
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--heading"></span>
+    </div>
+  {%- endif -%}
+
+  {%- for look in (1..looks) -%}
+    <div class="lookbook__entry lookbook__skeleton page-width" aria-hidden="true">
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--title"></span>
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--line"></span>
+      <div class="lookbook__products lookbook__skeleton-cards">
+        {%- for card in (1..4) -%}
+          <span class="lookbook__skeleton-card"></span>
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endfor -%}
+</div>

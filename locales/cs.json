@@ -294,6 +294,11 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Zobrazit více",
+      "load_more_error": "Další položky se nepodařilo načíst. Zkuste to prosím znovu.",
+      "load_error": "Lookbook se nepodařilo načíst. Zkuste to prosím znovu."
+    },
     "header": {
       "announcement": "Oznámení",
       "menu": "Nabídka",

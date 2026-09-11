@@ -276,6 +276,11 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "显示更多内容",
+      "load_more_error": "无法加载更多内容。请重试。",
+      "load_error": "无法加载 Lookbook。请重试。"
+    },
     "header": {
       "announcement": "公告",
       "menu": "菜单",

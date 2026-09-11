@@ -1,54 +1,53 @@
 {%- comment -%}
-  ============================================================================
-  Lookbook section.
-
-  A thin wrapper: it owns the theme-editor settings, the colour scheme and the
-  padding, then hands everything to snippets/lookbook.liquid, which owns the
-  field keys and the payload. That split is what lets a lookbook be rendered
-  outside this section — see the snippet's header for its parameters.
-
-  Note there is no `page-width` on the wrapper below. Container width is set per
-  entry by the template component, because the Full width template has to escape
-  the container that Default and Masonry sit inside.
-  ============================================================================
+  Lookbook section: the theme editor settings and the section wrapper.
+  The work happens in snippets/lookbook.liquid. Not available on product pages,
+  which use the Related lookbook section instead.
 {%- endcomment -%}
 
-{{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
+{%- capture lookbook_markup -%}
+  {%- render 'lookbook',
+    uid: section.id,
+    entry_source: section.settings.entry_source,
+    entries: section.settings.entries,
+    entries_limit: section.settings.entries_limit,
+    products_limit: section.settings.products_limit,
+    heading: section.settings.heading,
+    heading_size: section.settings.heading_size,
+    sub_heading: section.settings.sub_heading,
+    description: section.settings.description,
+    show_sub_heading: section.settings.show_sub_heading,
+    show_description: section.settings.show_description,
+    masonry_row_height: section.settings.masonry_row_height,
+    product_cta_label: section.settings.product_cta_label
+  -%}
+{%- endcapture -%}
 
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
+{%- comment -%} Skip the wrapper when the snippet has nothing to show. {%- endcomment -%}
+{%- assign lookbook_markup = lookbook_markup | strip -%}
+{%- if lookbook_markup != blank -%}
+  {{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
 
-  @media screen and (min-width: 750px) {
+  {%- style -%}
     .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
+      padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+      padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
     }
-  }
-{%- endstyle -%}
 
-<div class="color-{{ section.settings.color_scheme }} gradient">
-  <div class="section-{{ section.id }}-padding isolate">
-    {%- render 'lookbook',
-      uid: section.id,
-      entry_source: section.settings.entry_source,
-      entries: section.settings.entries,
-      entries_limit: section.settings.entries_limit,
-      products_limit: section.settings.products_limit,
-      heading: section.settings.heading,
-      heading_size: section.settings.heading_size,
-      sub_heading: section.settings.sub_heading,
-      description: section.settings.description,
-      show_sub_heading: section.settings.show_sub_heading,
-      show_description: section.settings.show_description,
-      masonry_row_height: section.settings.masonry_row_height,
-      product_cta_label: section.settings.product_cta_label
-    -%}
+    @media screen and (min-width: 750px) {
+      .section-{{ section.id }}-padding {
+        padding-top: {{ section.settings.padding_top }}px;
+        padding-bottom: {{ section.settings.padding_bottom }}px;
+      }
+    }
+  {%- endstyle -%}
+
+  <div class="color-{{ section.settings.color_scheme }} gradient">
+    <div class="section-{{ section.id }}-padding isolate">
+      {{ lookbook_markup }}
+    </div>
   </div>
-</div>
+{%- endif -%}
 
 {% schema %}
 {
@@ -56,7 +55,8 @@
   "class": "section",
   "tag": "section",
   "disabled_on": {
-    "groups": ["header", "footer"]
+    "groups": ["header", "footer"],
+    "templates": ["product"]
   },
   "settings": [
     {
@@ -85,7 +85,7 @@
       "step": 1,
       "default": 6,
       "label": "Maximum entries to show",
-      "info": "Only applies when Entries to show is All entries. A picked list shows everything you picked."
+      "info": "How many looks show at first when Entries to show is All entries; Show more loads the rest in batches of this size. A picked list shows everything you picked."
     },
     {
       "type": "header",
@@ -159,7 +159,7 @@
     },
     {
       "type": "paragraph",
-      "content": "Masonry lays products out in a rhythm of alternating wide and narrow cards at two different heights. Masonry - Product Images uses the same rhythm, but each cell holds a group of up to 3 images from one product; a product with fewer images shows a smaller group. Default and Full width keep their products on a single row and ignore the setting below."
+      "content": "Masonry lays products out in a rhythm of alternating wide and narrow cards at two different heights. Masonry - Product Images uses the same rhythm, but each cell holds a group of up to 3 images from one product; a product with fewer images shows a smaller group. Default and Full width keep their products on a single row (two up, wrapping, on phones) and ignore the setting below."
     },
     {
       "type": "range",

@@ -1,260 +1,154 @@
 # Convert — Shopify theme
 
-A Dawn-based Shopify theme with a **React-rendered Lookbook** driven by a
-`lookbook` metaobject.
+A Dawn-based Shopify theme with a React-rendered **Lookbook**. Looks are stored in
+a `lookbook` metaobject and loaded through the **Storefront API**.
 
-Everything except the Lookbook is stock Dawn. If you are only touching Liquid
-elsewhere in the theme, you can ignore the build step entirely — it exists
-solely to compile `src/lookbook/` into `assets/lookbook.js`.
+Everything except the Lookbook is stock Dawn. The build step only compiles
+`src/lookbook/` into `assets/lookbook.js`.
 
----
+## Documentation
+
+| Doc | Read it to… |
+| --- | --- |
+| [How it works](docs/how-it-works.md) | follow a look from the metaobject onto the page |
+| [Templates and styles](docs/templates-and-styles.md) | change a layout or add a template |
+| [Snippet reference](docs/snippet-reference.md) | render a lookbook somewhere new |
+| [Gotchas](docs/gotchas.md) | check before changing code that looks odd |
 
 ## Requirements
 
-| Tool | Version used | Notes |
-| --- | --- | --- |
-| Node | 22.12 | Anything supporting ES2020 output works |
-| npm | 10.9 | |
-| Shopify CLI | 4.7 | `shopify theme dev` / `theme check` / `theme push` |
-
----
+| Tool | Version used |
+| --- | --- |
+| Node | 22.12 |
+| npm | 10.9 |
+| Shopify CLI | 4.8 |
 
 ## Getting started
 
 ```bash
 npm install          # once
-npm run dev          # esbuild watch — rebuilds assets/lookbook.js on save
-shopify theme dev    # in a second terminal: live preview against your store
+npm run dev          # rebuilds assets/lookbook.js on save
+shopify theme dev    # in a second terminal: live preview
 ```
 
-Ship a production bundle before pushing:
+Before pushing:
 
 ```bash
 npm run build
 shopify theme push
 ```
 
-`npm run dev` and `npm run build` are **not** interchangeable. `build.mjs` sets
-`minify: !watch`, and esbuild derives `process.env.NODE_ENV` from that flag — so
-watch mode bundles development React (readable warnings, larger) and `build`
-bundles production React. Never push a watch-mode bundle.
+Don't push a `npm run dev` build: it bundles the larger development version of
+React. `assets/lookbook.js` is a build output, but it must be committed because
+Shopify serves the theme from `assets/`.
 
----
+## Setup in Shopify admin
 
-## How the Lookbook works
+### 1. Lookbook metaobject
 
-There is no client-side fetching. Liquid serialises everything into a JSON
-script tag at render time and React only takes over the markup, so the section
-is fully server-rendered as far as SEO and first paint are concerned.
+Create a metaobject definition with the type handle **`lookbook`**, turn on
+**Storefronts** access, and set entries to **Active** (drafts don't show).
 
-```
-  metaobject entries
-          |
-          v
-  snippets/lookbook.liquid        <- field keys, product resolution, payload
-          |
-          |  <script type="application/json" id="LookbookData-{uid}">
-          |  <div data-lookbook="LookbookData-{uid}">
-          v
-  src/lookbook/index.jsx          <- finds those pairs, mounts React
-          |
-          v
-  src/lookbook/Lookbook.jsx       <- section header, then one template per entry
-          |
-          v
-  src/lookbook/templates/         <- Default | Full width | Masonry | Masonry+Images
-```
-
-Two consequences worth internalising:
-
-- **Prices and any money value must be formatted in Liquid.** The shop's
-  currency format is not reachable from JavaScript.
-- **A malformed payload blanks the whole section** with nothing but a console
-  error. JSON validity is the failure mode to guard (see *Invariants*).
-
----
-
-## Project layout
-
-```
-sections/
-  lookbook.liquid            Lookbook section — theme editor settings only
-  lookbook-related.liquid    "Related lookbook" — product pages
-snippets/
-  lookbook.liquid            THE reusable entry point: field keys + payload
-assets/
-  section-lookbook.css       All Lookbook CSS, hand-written
-  lookbook.js                GENERATED — do not edit, but DO commit it
-src/lookbook/
-  index.jsx                  Mount layer + theme-editor re-render handling
-  Lookbook.jsx               Section header, dispatches each entry to a template
-  ProductCard.jsx            One product tile (image + overlay)
-  RichText.jsx               Renders Shopify's rich-text document tree
-  templates/
-    index.jsx                Registry: choice value -> component
-    EntryHeader.jsx          Shared title / sub heading / description
-    DefaultRow.jsx           One row, theme container
-    FullWidthRow.jsx         One row, full bleed
-    MasonryGrid.jsx          Masonry rhythm, one image per product
-    MasonryProductImages.jsx Masonry rhythm, a group of 3 images per product
-build.mjs                    esbuild config (add an entry point per React section)
-```
-
-`assets/lookbook.js` is a build output but **must be committed** — Shopify
-serves the theme from `assets/`, and `src/` never reaches the store
-(`.shopifyignore` excludes `src/`, `build.mjs`, `package.json`, `node_modules/`).
-
----
-
-## Metaobject setup
-
-Definition type handle must be **`lookbook`**, with **Storefronts API access
-enabled**, and entries must be **Active** — draft entries are not exposed to the
-storefront and will not render.
-
-| Field label | Key | Type |
+| Field | Key | Type |
 | --- | --- | --- |
 | Title | `title` | Single line text |
 | Sub Heading | `sub_heading` | Single line text |
 | Discreption | `discreption` | Rich text |
 | Template | `template` | Choice list |
-| Select Products | `select_products` *(or legacy `top_3_field`)* | Product list |
+| Select Products | `select_products` (older entries: `top_3_field`) | Product list |
 | Collection | `collection` | Collection |
 | Products Source | `products_source` | Choice list |
 
-Keys are declared once, at the top of `snippets/lookbook.liquid`. **Renaming a
-field's label in admin does not rename its key** — that is why the products
-field is resolved from two candidate keys, and why the misspelling in
-`discreption` is load-bearing rather than a typo to fix. If a key is wrong the
-section renders empty text and the theme editor shows a notice naming the keys
-it looked for.
+- **Products Source:** any value containing "collection" uses the Collection
+  field; anything else (or empty) uses the picked products.
+- **Template:** `Default`, `Full Width`, `Masonry` or `Masonry - Product Images`.
+  Unknown values fall back to Default. See
+  [Templates and styles](docs/templates-and-styles.md).
+- Field keys are the keys shown in the definition, not the labels. They're set
+  in `snippets/lookbook.liquid` and `src/lookbook/storefront.js`.
 
-### Products Source
+### 2. Storefront API token
 
-Matched loosely: any value **containing "collection"** means the entry pulls
-from its Collection field. Anything else — including an empty choice — means the
-picked product list. Manual is therefore the default, and entries saved before
-this field existed keep working.
+1. In the **Headless** sales channel, create a storefront.
+2. In its Storefront API permissions, allow **metaobjects** and **product
+   listings**.
+3. In the theme editor, paste its **public access token** into
+   **Theme settings → Storefront API**. The token is saved per theme, so paste it
+   again in any theme this code is pushed to.
 
-### Template
+A public token is meant to be used in the browser. If looks load without
+products, check that the products are available on the Headless channel.
 
-Resolved in `src/lookbook/templates/index.jsx`, which normalises the value
-(`"Full Width"`, `full-width`, `FULL_WIDTH` all match) and **falls back to
-Default** for an empty or unrecognised choice, so a look never drops off the
-page. Suggested choice values:
+### 3. Add the sections
 
-- `Default` — products on one row, theme container
-- `Full Width` — one row, full bleed
-- `Masonry` — alternating wide/narrow cards at two heights
-- `Masonry - Product Images` — same rhythm, but each cell is a group of up to
-  3 images from one product
+- **Lookbook**: for the homepage and other pages (not product pages). Choose
+  *All entries* or pick entries. With All entries, *Maximum entries to show*
+  looks load first and **Show more** loads the rest.
+- **Related lookbook**: product pages only, and already on
+  `templates/product.json`. Shows the looks that include the product being
+  viewed, up to *Maximum entries to show* (default 2). Its other settings match
+  the Lookbook section.
 
-Old spellings stay mapped in `ALIASES` (for example `Fluid Grid` → Masonry),
-because renaming a choice in admin does **not** rewrite the value already stored
-on each entry.
+Without a token, or with nothing to show, a section outputs nothing on the live
+store and shows a notice in the theme editor.
 
----
+## Project layout
 
-## The two sections
-
-**Lookbook** — pick entries manually or show all Active ones, in the order set
-in Settings → Custom data. Each entry uses its own Template.
-
-**Related lookbook** (product templates only) — shows the looks that already
-feature the product being viewed. The metaobject *is* the relationship, so there
-is nothing to pick: add a product to a look and it appears here. Collection-
-sourced looks are matched through `product.collections` rather than by scanning
-the collection, which stays correct past the 50 products Liquid returns. The
-viewed product is removed from the looks it appears in, one template is forced
-for the whole section, and the section renders **nothing** when no look matches —
-so it is safe to leave on the product template for every product.
-
----
-
-## Rendering a lookbook somewhere else
-
-The section is a thin wrapper; the snippet is the reusable unit.
-
-```liquid
-{% render 'lookbook', uid: 'home-lookbook', heading: 'Shop the look' %}
+```
+config/settings_schema.json     Theme settings > Storefront API (the token)
+locales/*.json                  sections.lookbook.* (Show more and error text)
+sections/
+  lookbook.liquid               Lookbook section settings
+  lookbook-related.liquid       Related lookbook (product pages)
+snippets/
+  lookbook.liquid               Picks the entries and writes the page data
+  lookbook-skeleton.liquid      Placeholder looks while loading
+assets/
+  section-lookbook.css          All lookbook styles
+  lookbook.js                   Built from src/ (commit it)
+src/lookbook/
+  index.jsx                     Loads the first looks and mounts React
+  Lookbook.jsx                  Section header, looks, Show more
+  useLookbookEntries.js         Looks and Show more state
+  storefront.js                 Storefront API requests and loader
+  translations.js               Unescapes translated labels
+  ProductCard.jsx               One product card
+  RichText.jsx                  Rich text field renderer
+  templates/                    Default, Full width, Masonry, Masonry - Product Images
+tests/                          npm test
+docs/                           Detailed documentation
 ```
 
-`uid` is **required when two lookbooks share a page** — matching ids make both
-mount the same payload. Every parameter is documented in the snippet's header
-comment; that block is the API reference, kept next to the code so it cannot
-drift.
+`.shopifyignore` keeps `src/`, `tests/`, `docs/` and the build files out of the
+theme upload.
 
----
-
-## Adding a template
-
-1. Write the component in `src/lookbook/templates/`. It owns the **whole
-   entry** — header, product arrangement *and* container width. Width lives in
-   the template, not the section wrapper, because Full width has to escape the
-   container its neighbours sit in.
-2. Add one line to `TEMPLATES` in `templates/index.jsx`.
-3. Add the choice to the metaobject definition in admin.
-4. `npm run build`.
-
-Add responsive arrangement in CSS keyed off a class or `data-` attribute rather
-than computing it in JS — an inline style cannot carry a media query.
-
----
-
-## Invariants
-
-These are the things that look like tidy-ups and are not. Each one was a real
-bug.
-
-**Never write a literal closing-script tag inside a Liquid filter argument.**
-`snippets/lookbook.liquid` assembles it from two halves. Written out, Theme
-Check's HTML parser treats it as closing the `<script>` element, fails with a
-`LiquidHTMLSyntaxError`, and then **stops checking the rest of the file** — you
-lose all coverage after that line, not just one error.
-
-**The backslash in `<\/script>` must survive to output.** Shopify's Liquid keeps
-it because its lexer never unescapes string literals. Do not port that line to a
-templating language that *does* unescape (liquidjs) — the two halves collapse to
-the same value, `replace` becomes a no-op, and the guard silently disappears.
-
-**Commas in the payload are leading, not trailing.** Entries and products can be
-skipped (a look may not feature the related product; the viewed product is
-removed), so `forloop.last` marks the last item *examined*, not the last
-*written*. Loops count what they emit. Reintroducing `unless forloop.last`
-produces a trailing comma and blanks the section.
-
-**Never set a used CSS custom property inline from a setting.** Inline styles
-outrank media queries. The masonry row height is written to
-`--masonry-row-setting` and the used `--masonry-row` is derived from it in CSS,
-so the mobile override is still reachable.
-
-**`var()` does not work in an `img` `sizes` attribute.** It is resolved without
-element style context, so a custom property there never resolves and the whole
-value silently falls back to `100vw`, loading oversized images. Use `vw` maths.
-
-**Only the product-images template ships 3 images per product.** The Liquid gate
-matches the raw template choice loosely; guessing low is safe because a group
-just shrinks. Removing the gate roughly doubles the payload for every other
-template.
-
----
-
-## Verifying changes
+## Testing
 
 ```bash
-npm run build                # must succeed
-shopify theme check          # lookbook files should report 0 offenses
+npm test               # Liquid and Storefront API tests, no network needed
+npm run build          # must succeed
+shopify theme check    # lookbook files should have no offenses
 ```
 
-`theme check` reports 11 pre-existing warnings in stock Dawn files — 6
-`UndefinedObject`, 2 `VariableName`, 2 `UnusedAssign`, 1 `OrphanedSnippet`.
-Those are not ours; what matters is that **no lookbook file appears in the
-output and the error count is 0**.
+- `tests/lookbook.test.mjs`: which looks each section lists, the JSON payload
+  and the skeleton.
+- `tests/storefront.test.mjs`: API requests, mapping and the loader.
+- `tests/translations.test.mjs`: label unescaping.
 
-Neither command can catch a malformed JSON payload, which is the highest-impact
-failure. To test that, render `snippets/lookbook.liquid` through a Liquid engine
-with the Shopify filters stubbed (`json`, `money`, `image_url`, `strip_html`,
-`strip_newlines`, `metafield_tag`), extract the `<script type="application/json">`
-body and `JSON.parse` it — across combinations of product count, image count,
-products source, and the related-product filters. The cases that matter are the
-ones where the **first**, **middle** or **last** item is skipped.
+`theme check` also reports 9 warnings in stock Dawn files (Shopify CLI 4.8).
+Those aren't part of the lookbook.
+
+## Known limitations
+
+- Looks load after the page, so crawlers that don't run JavaScript only see the
+  placeholders.
+- No token, or a token without the right permissions, means no looks.
+- Liquid lists at most 50 entries. Beyond that, the homepage keeps loading
+  through the API in id order, and product pages only check the first 50.
+- Placeholders have one general shape, so Masonry looks change height when
+  they arrive.
+- Between 750px and 990px, Default and Full width stay on one row and can scroll
+  sideways with four or more products.
+- Theme editor setting labels are English only.
+- The two lookbook error messages were translated for this theme, not by
+  Shopify. Review them before launching in another language.

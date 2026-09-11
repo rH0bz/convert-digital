@@ -1,17 +1,6 @@
 /*
- * Renders a Shopify rich text field.
- *
- * Rich text metaobject fields are not HTML — they are a document tree that
- * looks like this:
- *
- *   { type: 'root', children: [
- *     { type: 'paragraph', children: [
- *       { type: 'text', value: 'Discreption', bold: false, italic: false } ] } ] }
- *
- * Liquid has no dependable way to turn that into HTML on a metaobject field, so
- * the tree is passed through untouched and walked here instead. That also means
- * the markup is fully under our control — a paragraph can become whatever the
- * design needs, rather than whatever Shopify would have emitted.
+ * Renders a Shopify rich text field. The API returns it as a document tree
+ * (root > paragraph > text, and so on), not as HTML.
  */
 
 function Nodes({ nodes }) {
@@ -30,7 +19,7 @@ function Node({ node }) {
       return <p>{children}</p>;
 
     case 'heading': {
-      // Clamped so a level outside 1-6 cannot produce an invalid tag name.
+      // Keep the level between 1 and 6 so the tag is always valid.
       const level = Math.min(Math.max(node.level ?? 2, 1), 6);
       const Tag = `h${level}`;
       return <Tag>{children}</Tag>;
@@ -62,26 +51,17 @@ function Node({ node }) {
     }
 
     default:
-      // Unknown node type: render its children rather than dropping the content.
+      // Unknown node type: still show its content.
       return children;
   }
 }
 
-export default function RichText({ tree, html, className }) {
-  // The tree is preferred, so a Liquid error string from the metafield_tag
-  // fallback in the .liquid file can never end up on the page.
-  if (tree) {
-    return (
-      <div className={className}>
-        <Node node={tree} />
-      </div>
-    );
-  }
+export default function RichText({ tree, className }) {
+  if (!tree) return null;
 
-  if (html) {
-    // Authored by staff in the Shopify admin, not by shoppers.
-    return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
-  }
-
-  return null;
+  return (
+    <div className={className}>
+      <Node node={tree} />
+    </div>
+  );
 }

@@ -1,13 +1,6 @@
-/* ---------------------------------------------------------------------------
-   Section header — the section's own heading, sub heading and description, as
-   opposed to the per-entry header below.
+/* Lookbook styles. Layout notes: docs/templates-and-styles.md */
 
-   The auto margins are restated even though `page-width` already sets them:
-   they are what keeps the block centred inside the container, and the reason
-   this element carries its own class rather than Dawn's title-wrapper classes
-   is that those set a `margin` shorthand at equal specificity later in
-   base.css, which zeroed the centring.
-   --------------------------------------------------------------------------- */
+/* Section header: heading, sub heading, description */
 
 .lookbook__header {
   margin-right: auto;
@@ -27,7 +20,7 @@
 }
 
 .lookbook__description {
-  /* Held short of the full container: prose is hard to read at 1200px wide. */
+  /* Narrower than the page so the text stays readable. */
   max-width: 78rem;
   margin-top: 1.6rem;
   color: rgba(var(--color-foreground), 0.75);
@@ -40,6 +33,8 @@
 .lookbook__description > :last-child {
   margin-bottom: 0;
 }
+
+/* Each look */
 
 .lookbook__entry + .lookbook__entry {
   margin-top: 5.6rem;
@@ -75,24 +70,17 @@
   margin-bottom: 0;
 }
 
-/* ---------------------------------------------------------------------------
-   Entry width
-   `page-width` is applied per template rather than to the section wrapper, so
-   Full width can opt out of the max-width while its neighbours keep it. This
-   rule only supplies the gutter that `page-width` would otherwise have given.
-   --------------------------------------------------------------------------- */
+/* Full width template: side padding without the page-width limit */
 
 .lookbook__entry--full {
   padding-right: 1.5rem;
   padding-left: 1.5rem;
 }
 
-/* ---------------------------------------------------------------------------
-   Products — shared
-   --------------------------------------------------------------------------- */
+/* Product grid, shared by every template */
 
 .lookbook__products {
-  /* One gap value for every template and breakpoint — change it here only. */
+  /* One gap for every template and screen size. */
   --lookbook-gap: 1rem;
 
   display: grid;
@@ -101,37 +89,31 @@
   padding: 0;
 }
 
-/* ---------------------------------------------------------------------------
-   Layout: one row (Default and Full width)
-
-   `grid-auto-flow: column` puts every product in a single implicit row, so the
-   row never wraps no matter how many products an entry has — which is the whole
-   point of these two templates.
-
-   Equal columns come from `minmax(<min>, 1fr)`: while the products fit, 1fr
-   splits the width evenly; once they cannot hold --row-card-min the track stops
-   shrinking and the row scrolls sideways instead of crushing the cards.
-   --------------------------------------------------------------------------- */
+/* Default and Full width: one row on desktop that scrolls if it overflows */
 
 .lookbook__products--row {
-  --row-card-min: 14rem;
+  --row-card-min: 18rem;
 
   grid-auto-flow: column;
   grid-auto-columns: minmax(var(--row-card-min), 1fr);
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  /* Keeps focus rings and hover transforms from being clipped by the scroller. */
+  /* Room so focus rings aren't clipped. */
   padding-bottom: 0.4rem;
   scrollbar-width: thin;
 }
 
-@media screen and (min-width: 750px) {
+@media screen and (max-width: 749px) {
+  /* Phones: two columns that wrap, no scrolling. */
   .lookbook__products--row {
-    --row-card-min: 18rem;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 }
 
-/* A row that fits needs no scroll affordance at all. */
+/* Thin scrollbar for a row that overflows */
 .lookbook__products--row::-webkit-scrollbar {
   height: 0.4rem;
 }
@@ -141,37 +123,10 @@
   background-color: rgba(var(--color-foreground), 0.25);
 }
 
-/* ---------------------------------------------------------------------------
-   Layout: Fluid grid — masonry rhythm
-
-   An auto-fit grid was indistinguishable from the one-row templates whenever an
-   entry had no more products than the column cap, which is the common case. So
-   this is a deliberate editorial rhythm instead: cards alternate between wide
-   and narrow, and between two heights.
-
-   The rhythm repeats every 4 cards over a 6-column base:
-
-     band A   [ 1: span 4 ][ 2: span 2 ]   both 3 rows tall
-     band B   [ 3: span 2 ][ 4: span 4 ]   both 4 rows tall
-
-   Column spans sum to 6 in every band, and both cards in a band share a row
-   span, so the grid never leaves a hole or a ragged edge — the variation comes
-   from which side is wide and how tall the band is, not from mismatched cards.
-   That is also why `grid-auto-flow: dense` is NOT used: nothing needs
-   backfilling, and dense would let later cards jump ahead of earlier ones,
-   losing the order the merchant arranged.
-
-   Row spans (not aspect ratios) drive the heights, so --masonry-row scales the
-   whole rhythm from one setting.
-   --------------------------------------------------------------------------- */
+/* Masonry: wide and narrow cards in a repeating 4-card pattern on 6 columns */
 
 .lookbook__products--masonry {
-  /*
-   * --masonry-row-setting is what the section setting writes, as an inline
-   * style. --masonry-row is derived from it here rather than being set inline
-   * directly: an inline style outranks every stylesheet rule, so setting the
-   * used value inline would make the mobile override below unreachable.
-   */
+  /* The template sets --masonry-row-setting; see docs/gotchas.md before setting --masonry-row inline. */
   --masonry-row: var(--masonry-row-setting, 12rem);
 
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -198,28 +153,15 @@
   grid-row: span 4;
 }
 
-/*
- * Bands hold two cards, so an odd number of products leaves the final card
- * alone. Widening it to the full 6 columns ends the entry on a clean edge
- * instead of a two-thirds card and a gap.
- */
+/* Odd number of products: the last card spans the full width. */
 .lookbook__products--masonry > :last-child:nth-child(odd) {
   grid-column: span 6;
 }
 
 @media screen and (max-width: 749px) {
-  /*
-   * Two up on mobile with the heights still staggered. The wide/narrow rhythm
-   * is dropped because a 2-of-6 card is ~110px on a phone — too small to read.
-   * Every card takes one column and only the row span alternates, which keeps
-   * the masonry feel without a ragged edge at any product count.
-   */
+  /* Phones: two columns, heights still alternate. */
   .lookbook__products--masonry {
-    /*
-     * Scaled from the setting rather than ignoring it: the value is tuned
-     * against the 6-column desktop rhythm, and a two-up phone card needs less
-     * height for the same proportions.
-     */
+    /* Shorter rows on phones: 75% of the setting. */
     --masonry-row: calc(var(--masonry-row-setting, 12rem) * 0.75);
 
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -242,22 +184,10 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Layout: Masonry - Product Images
-
-   Two nested grids. The outer one is `.lookbook__products--masonry` above, used
-   unchanged — a cell simply holds a product GROUP here instead of a single
-   picture, so the wide/narrow rhythm is shared between the two masonry
-   templates and only has to be maintained once. Everything below styles what
-   happens inside a cell.
-   --------------------------------------------------------------------------- */
+/* Masonry - Product Images: each masonry cell holds up to 3 images of one product */
 
 .lookbook__group .lookbook__product-link {
-  /*
-   * Positioning context for the overlay. In a plain card the overlay sits
-   * inside `.lookbook__product-media`; in a group it spans the whole cluster,
-   * so the link has to be what it resolves against.
-   */
+  /* The overlay covers the whole group. */
   position: relative;
 }
 
@@ -266,7 +196,7 @@
   flex: 1;
   min-height: 0;
   gap: var(--lookbook-gap);
-  /* Three up: one tall image beside two stacked ones. */
+  /* 3 images: one tall image beside two stacked ones. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
@@ -275,12 +205,7 @@
   grid-row: span 2;
 }
 
-/*
- * A product with fewer images than the rhythm expects reshapes the cluster
- * rather than leaving a hole — the group shrinks, nothing is invented and the
- * product is never dropped. data-count carries the real number from the
- * renderer so this stays in CSS instead of branching the markup.
- */
+/* Fewer images: the group shrinks to fit (count from data-count). */
 .lookbook__group-images[data-count='0'],
 .lookbook__group-images[data-count='1'] {
   grid-template-columns: minmax(0, 1fr);
@@ -316,15 +241,8 @@
 
 @media screen and (min-width: 750px) {
   /*
-   * The narrow cells of the outer rhythm are a third of the container wide, so
-   * splitting one side by side would leave each image tiny. Those get a tall
-   * arrangement instead: one large image above two smaller ones.
-   *
-   * 4n+3 is excluded when it is the last child because the outer
-   * `:last-child:nth-child(odd)` rule widens that cell to the full six columns
-   * — it is no longer narrow, so it should keep the wide cluster. 4n+2 always
-   * lands on an even position and can never match that rule, so it needs no
-   * such guard.
+   * Narrow cells stack their 3 images: one large on top, two small below.
+   * A last card that spans the full width isn't narrow, so it's left out.
    */
   .lookbook__products--groups > :nth-child(4n + 2) .lookbook__group-images[data-count='3'],
   .lookbook__products--groups
@@ -347,28 +265,19 @@
 }
 
 @media screen and (max-width: 749px) {
-  /*
-   * One group per row on phones. Two across would leave each image about 80px
-   * wide once the cell is divided three ways. The children already span a
-   * single column from the Masonry mobile rules above, so only the track count
-   * changes here.
-   */
+  /* Phones: one product group per row. */
   .lookbook__products--groups {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
+/* Product card */
+
 .lookbook__product {
   min-width: 0;
 }
 
-/*
- * The card is the image and nothing else, so the link fills its grid cell and
- * the media fills the link. In the row templates the cell height comes from the
- * tallest image in the row; in Masonry it comes from the row span. Either way
- * the image has to stretch to it — `height: auto` would leave every card short
- * of its own cell and the overlays would not line up.
- */
+/* The image stretches to fill its grid cell, so overlays line up. */
 .lookbook__product-link {
   display: flex;
   flex-direction: column;
@@ -397,24 +306,14 @@
   transform: scale(1.04);
 }
 
-/* Keeps the grid from collapsing when a product has no featured image. */
+/* Placeholder when a product has no image. */
 .lookbook__product-media--empty {
   height: 100%;
   min-height: 24rem;
   background-color: rgba(var(--color-foreground), 0.05);
 }
 
-/* ---------------------------------------------------------------------------
-   Product overlay — title and call to action, over the image.
-
-   Always visible rather than revealed on hover: a touch device has no hover
-   state, so a hover-only overlay would hide the product name and the button on
-   exactly the devices that cannot get them back. The gradient does the work of
-   keeping the text legible over a light photograph.
-
-   White is hardcoded here because the text sits on a dark scrim over an image,
-   not on the section background, so it must not follow the colour scheme.
-   --------------------------------------------------------------------------- */
+/* Title and button over the image. Always visible, since touch screens have no hover. */
 
 .lookbook__product-overlay {
   position: absolute;
@@ -432,10 +331,11 @@
     rgba(0, 0, 0, 0.25) 55%,
     rgba(0, 0, 0, 0)
   );
-  /* The link owns the click; the overlay must not swallow it. */
+  /* Let clicks through to the link. */
   pointer-events: none;
 }
 
+/* White text, because it sits on the dark gradient rather than the section background. */
 .lookbook__product-title {
   margin: 0;
   color: #fff;
@@ -458,17 +358,120 @@
     color var(--duration-short, 0.15s) ease;
 }
 
-/*
- * Keyed off the link, not the button: the button is a span, so it never
- * receives hover or focus itself.
- */
+/* The button is a span, so it's styled from the link's hover and focus. */
 .lookbook__product-link:hover .lookbook__product-cta,
 .lookbook__product-link:focus-visible .lookbook__product-cta {
   background-color: #fff;
   color: rgb(var(--color-foreground));
 }
 
-/* Theme editor hint only — never rendered on the live storefront. */
+/* Skeleton: placeholder looks while the Storefront API loads */
+
+.lookbook__skeleton-bar,
+.lookbook__skeleton-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background-color: rgba(var(--color-foreground), 0.07);
+}
+
+.lookbook__skeleton-bar {
+  height: 1.6rem;
+  border-radius: 0.4rem;
+}
+
+.lookbook__skeleton-bar--heading {
+  width: min(28rem, 60%);
+  height: 4rem;
+}
+
+.lookbook__skeleton-bar--title {
+  width: min(32rem, 70%);
+  height: 3.2rem;
+}
+
+.lookbook__skeleton-bar--line {
+  width: min(56rem, 90%);
+  margin-top: 1.2rem;
+}
+
+/* Also has .lookbook__products, so it uses the shared gap. */
+.lookbook__skeleton-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 2.4rem;
+}
+
+.lookbook__skeleton-card {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--media-radius, 0);
+}
+
+/* Shimmer */
+.lookbook__skeleton-bar::after,
+.lookbook__skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    rgba(var(--color-background), 0),
+    rgba(var(--color-background), 0.6),
+    rgba(var(--color-background), 0)
+  );
+  transform: translateX(-100%);
+  animation: lookbook-skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes lookbook-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media screen and (max-width: 749px) {
+  /* Two columns on phones. */
+  .lookbook__skeleton-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No shimmer for visitors who prefer less motion. */
+  .lookbook__skeleton-bar::after,
+  .lookbook__skeleton-card::after {
+    display: none;
+    animation: none;
+  }
+}
+
+/* Error message when the first looks fail to load */
+
+.lookbook__status {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 4rem 1.5rem;
+  color: rgba(var(--color-foreground), 0.75);
+  font-size: 1.4rem;
+  text-align: center;
+}
+
+/* Show more button */
+
+.lookbook__load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 5.6rem;
+}
+
+.lookbook__load-more-error {
+  margin: 0;
+  color: rgba(var(--color-foreground), 0.75);
+  font-size: 1.4rem;
+}
+
+/* Theme editor notices (never shown on the live store) */
 .lookbook__notice {
   padding: 2.4rem;
   border: 0.1rem dashed rgba(var(--color-foreground), 0.35);

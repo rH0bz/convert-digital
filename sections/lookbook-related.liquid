@@ -1,80 +1,52 @@
 {%- comment -%}
-  ============================================================================
-  Related lookbook — the lookbook, narrowed to the product being viewed.
-
-  Same renderer and same templates as sections/lookbook.liquid; the difference
-  is which looks appear and why. There is no entry picker here: the metaobject
-  already records which products belong to which look, so that relationship IS
-  the condition. A look shows up on a product page when it features that
-  product — through its picked products, or through the collection it points at
-  — which makes this behave like related products without a second field to
-  maintain.
-
-  The product being viewed is left out of the looks it appears in, so the page
-  never recommends itself.
-
-  Templates are forced to one choice for the whole section rather than following
-  each entry's own Template field. A product page wants one consistent block; a
-  look configured as Full width for the lookbook page should not break out of
-  the product layout here.
-
-  Renders nothing at all when no look features the product, so it is safe to
-  leave on the product template for every product.
-  ============================================================================
+  Related lookbook: product pages only. Shows the looks that include the product
+  being viewed (up to "Maximum entries to show", default 2). Same snippet,
+  templates and settings as the Lookbook section, minus the entry picker.
 {%- endcomment -%}
 
-{{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
+{%- capture lookbook_markup -%}
+  {%- render 'lookbook',
+    uid: section.id,
+    containing_product: product,
+    entries_limit: section.settings.entries_limit,
+    products_limit: section.settings.products_limit,
+    heading: section.settings.heading,
+    heading_size: section.settings.heading_size,
+    sub_heading: section.settings.sub_heading,
+    description: section.settings.description,
+    show_sub_heading: section.settings.show_sub_heading,
+    show_description: section.settings.show_description,
+    masonry_row_height: section.settings.masonry_row_height,
+    product_cta_label: section.settings.product_cta_label
+  -%}
+{%- endcapture -%}
 
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
+{%- comment -%} Skip the wrapper when no look includes this product. {%- endcomment -%}
+{%- assign lookbook_markup = lookbook_markup | strip -%}
+{%- if lookbook_markup != blank -%}
+  {{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
 
-  @media screen and (min-width: 750px) {
+  {%- style -%}
     .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
+      padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+      padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
     }
-  }
-{%- endstyle -%}
 
-<div class="color-{{ section.settings.color_scheme }} gradient">
-  <div class="section-{{ section.id }}-padding isolate">
-    {%- comment -%}
-      `exclude_product` is passed separately from `containing_product` rather
-      than being implied by it: they are different questions — which looks to
-      show, and which product to leave out of them — and the merchant can turn
-      the second off without losing the first.
-    {%- endcomment -%}
-    {%- liquid
-      # Left unassigned when the merchant turns the option off, rather than
-      # assigned `nil`: an unset variable is nil in Liquid either way, and this
-      # avoids depending on how a given Liquid implementation parses the `nil`
-      # literal in an assign.
-      if section.settings.exclude_current_product
-        assign excluded = product
-      endif
-    -%}
-    {%- render 'lookbook',
-      uid: section.id,
-      containing_product: product,
-      exclude_product: excluded,
-      force_template: section.settings.template,
-      entries_limit: section.settings.entries_limit,
-      products_limit: section.settings.products_limit,
-      heading: section.settings.heading,
-      heading_size: section.settings.heading_size,
-      sub_heading: section.settings.sub_heading,
-      description: section.settings.description,
-      show_sub_heading: section.settings.show_sub_heading,
-      show_description: section.settings.show_description,
-      masonry_row_height: section.settings.masonry_row_height,
-      product_cta_label: section.settings.product_cta_label
-    -%}
+    @media screen and (min-width: 750px) {
+      .section-{{ section.id }}-padding {
+        padding-top: {{ section.settings.padding_top }}px;
+        padding-bottom: {{ section.settings.padding_bottom }}px;
+      }
+    }
+  {%- endstyle -%}
+
+  <div class="color-{{ section.settings.color_scheme }} gradient">
+    <div class="section-{{ section.id }}-padding isolate">
+      {{ lookbook_markup }}
+    </div>
   </div>
-</div>
+{%- endif -%}
 
 {% schema %}
 {
@@ -87,37 +59,17 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Shows the lookbook entries that already feature the product being viewed. Add a product to a look in Settings > Custom data and it appears here — there is nothing to pick in this section."
-    },
-    {
-      "type": "select",
-      "id": "template",
-      "options": [
-        { "value": "masonry", "label": "Masonry" },
-        { "value": "masonry_product_images", "label": "Masonry - Product Images" },
-        { "value": "default", "label": "Default (one row)" },
-        { "value": "full_width", "label": "Full width (one row)" }
-      ],
-      "default": "masonry",
-      "label": "Template",
-      "info": "Applies to every look in this section, ignoring the Template field on the entries themselves."
+      "content": "Shows the lookbook entries that feature the product being viewed, in the order set in Settings > Custom data. Add a product to a look, or to the collection a look pulls from, and it appears here. There are no entries to pick in this section."
     },
     {
       "type": "range",
       "id": "entries_limit",
       "min": 1,
-      "max": 4,
+      "max": 12,
       "step": 1,
-      "default": 1,
-      "label": "Maximum looks to show",
-      "info": "A product can belong to more than one look. They appear in the order set in Settings > Custom data."
-    },
-    {
-      "type": "checkbox",
-      "id": "exclude_current_product",
-      "default": true,
-      "label": "Hide the product being viewed",
-      "info": "Leaves this product out of the looks it appears in, so the page does not recommend itself."
+      "default": 2,
+      "label": "Maximum entries to show",
+      "info": "A product can be in more than one look. This many of the looks featuring it are shown, in the order set in Settings > Custom data."
     },
     {
       "type": "header",
@@ -126,7 +78,7 @@
     {
       "type": "inline_richtext",
       "id": "heading",
-      "default": "Shop the look",
+      "default": "Lookbook",
       "label": "Heading"
     },
     {
@@ -137,33 +89,35 @@
         { "value": "h1", "label": "Medium" },
         { "value": "h0", "label": "Large" }
       ],
-      "default": "h2",
+      "default": "h1",
       "label": "Heading size"
     },
     {
       "type": "text",
       "id": "sub_heading",
-      "label": "Sub heading"
+      "label": "Sub heading",
+      "info": "Sits under the section heading. This is the whole section's sub heading, not the one on each look."
     },
     {
       "type": "richtext",
       "id": "description",
-      "label": "Description"
+      "label": "Description",
+      "info": "Sits under the sub heading, held to a readable width rather than the full container."
     },
     {
       "type": "header",
-      "content": "Look content"
+      "content": "Entry content"
     },
     {
       "type": "checkbox",
       "id": "show_sub_heading",
-      "default": false,
+      "default": true,
       "label": "Show sub heading on each look"
     },
     {
       "type": "checkbox",
       "id": "show_description",
-      "default": false,
+      "default": true,
       "label": "Show description on each look"
     },
     {
@@ -179,9 +133,17 @@
       "min": 1,
       "max": 24,
       "step": 1,
-      "default": 6,
+      "default": 12,
       "label": "Maximum products per look",
-      "info": "Counted after the product being viewed is removed, so this is how many you actually see."
+      "info": "Applies to both product sources — hand-picked lists and collections alike. Products past this count are cut off with nothing shown in their place, so keep it at or above the longest list you have picked."
+    },
+    {
+      "type": "header",
+      "content": "Masonry templates"
+    },
+    {
+      "type": "paragraph",
+      "content": "Masonry lays products out in a rhythm of alternating wide and narrow cards at two different heights. Masonry - Product Images uses the same rhythm, but each cell holds a group of up to 3 images from one product; a product with fewer images shows a smaller group. Default and Full width keep their products on a single row (two up, wrapping, on phones) and ignore the setting below."
     },
     {
       "type": "range",
@@ -190,9 +152,9 @@
       "max": 220,
       "step": 10,
       "unit": "px",
-      "default": 100,
+      "default": 120,
       "label": "Masonry row height",
-      "info": "Only affects the two Masonry templates. Cards are 3 or 4 of these tall. Phones use 75% of this."
+      "info": "Scales both Masonry templates: cards are 3 or 4 of these tall, so 120px gives roughly 380px and 510px cards. Phones use 75% of this."
     },
     {
       "type": "header",

@@ -115,9 +115,7 @@
       "type": "lookbook-related",
       "name": "Related lookbook",
       "settings": {
-        "template": "full_width",
         "entries_limit": 2,
-        "exclude_current_product": true,
         "heading": "Shop the look",
         "heading_size": "h2",
         "sub_heading": "",

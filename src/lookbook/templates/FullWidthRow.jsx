@@ -1,14 +1,6 @@
 /*
- * Template: Full width
- *
- * Identical row behaviour to Default — one row, however many products — but the
- * entry spans the whole viewport instead of the theme container. It is the
- * absence of `page-width` that does that: the section wrapper no longer
- * constrains its children, so each template declares its own width.
- *
- * `.lookbook__entry--full` keeps the same 1.5rem side gutter `page-width` uses,
- * so a full-width look lines up with the rest of the page at the edges without
- * inheriting the max-width.
+ * Full width template: like Default, but the look spans the whole screen.
+ * .lookbook__entry--full adds the side padding that page-width would give.
  */
 
 import EntryHeader from './EntryHeader.jsx';
@@ -32,7 +24,7 @@ export default function FullWidthRow({ entry, showSubHeading, showDescription, p
               key={product.id}
               product={product}
               ctaLabel={productCtaLabel}
-              // Full bleed, so a card is the viewport split by the product count.
+              // Each card's share of the full screen, or about half on phones.
               sizes={`(min-width: 750px) ${Math.round(100 / products.length)}vw, 45vw`}
             />
           ))}

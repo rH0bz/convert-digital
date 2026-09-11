@@ -276,6 +276,11 @@
     }
   },
   "sections": {
+    "lookbook": {
+      "load_more": "Näytä enemmän",
+      "load_more_error": "Lisää ei voitu ladata. Yritä uudelleen.",
+      "load_error": "Lookbookia ei voitu ladata. Yritä uudelleen."
+    },
     "header": {
       "announcement": "Ilmoitus",
       "menu": "Valikko",

@@ -1,14 +1,6 @@
 /*
- * Template: Default
- *
- * Products always sit on a single row, however many there are — the row divides
- * the width equally rather than wrapping to a second line. Constrained to the
- * theme's normal container via `page-width`.
- *
- * Once the products can no longer hold the minimum card width the row scrolls
- * sideways instead of crushing the cards; see `.lookbook__products--row` in
- * assets/section-lookbook.css. Staying on one row is the point of this
- * template, so it is honoured at every viewport rather than wrapping on mobile.
+ * Default template: products on one row inside the page width.
+ * The row scrolls if it overflows; on phones products wrap into two columns.
  */
 
 import EntryHeader from './EntryHeader.jsx';
@@ -32,14 +24,8 @@ export default function DefaultRow({ entry, showSubHeading, showDescription, pro
               key={product.id}
               product={product}
               ctaLabel={productCtaLabel}
-              /*
-               * Every product shares the row, so a card is roughly the
-               * container split by the product count. Expressed in vw, not
-               * `var(--page-width)`: `sizes` is resolved without element style
-               * context, so a custom property there never resolves and the
-               * whole value falls back to 100vw. Overshooting slightly on
-               * viewports wider than the container only costs a larger pick.
-               */
+              // Each card's share of the row, or about half the screen on phones.
+              // Plain vw only: CSS variables don't work in sizes (docs/gotchas.md).
               sizes={`(min-width: 750px) ${Math.max(5, Math.round(100 / products.length))}vw, 45vw`}
             />
           ))}
