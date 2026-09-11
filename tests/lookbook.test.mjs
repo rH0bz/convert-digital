@@ -1,19 +1,7 @@
 /*
- * Render tests for the lookbook payload.
- *
- * Both lookbook sections are rendered through liquidjs with Shopify's filters
- * stubbed, and the JSON payload the React renderer receives is parsed and
- * checked. Liquid decides which looks a section shows — their ids, in order —
- * and passes on what the renderer needs to load them through the Storefront
- * API. The loading itself is covered by storefront.test.mjs.
- *
- * This covers what neither `npm run build` nor `shopify theme check` can see: a
- * malformed payload, which blanks the section with only a console error, and
- * the rules for which looks each section lists.
- *
- * liquidjs is close to Shopify's Liquid but not identical. It unescapes string
- * literals, so the closing-script guard in snippets/lookbook.liquid is a no-op
- * here and is not covered (see Invariants in the README).
+ * Liquid render tests: which looks each section lists, the JSON payload and the
+ * skeleton. Uses liquidjs with Shopify's filters stubbed, which can't test the
+ * closing-script guard (see docs/gotchas.md).
  */
 
 import { describe, test } from 'node:test';

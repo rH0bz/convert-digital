@@ -1,16 +1,6 @@
 /*
- * The renderer.
- *
- * Liquid writes the section's settings and the ids of the looks to show into
- * the page (snippets/lookbook.liquid). index.jsx loads the first looks through
- * the Storefront API and only then mounts this, so it starts with looks in hand;
- * further batches come from the Show more button — see useLookbookEntries.js
- * and storefront.js.
- *
- * Each entry names a template, and the component for it comes from
- * ./templates. Per-entry templates are why the container width is set inside
- * each template rather than here — a Full width look has to escape the
- * container its neighbours sit in.
+ * Draws a lookbook: the section header, each look with its template, and the
+ * Show more button. Mounted by index.jsx once the first looks have loaded.
  */
 
 import { useMemo } from 'react';
@@ -32,40 +22,24 @@ export default function Lookbook({
   labels: escapedLabels = {},
 }) {
   const { entries, status, loadMore } = useLookbookEntries(loader, firstBatch);
-  // Shopify's `t` filter HTML-escapes the labels; see translations.js.
+  // Shopify's t filter HTML-escapes the labels; undo that for display.
   const labels = useMemo(() => unescapeTranslations(escapedLabels), [escapedLabels]);
 
-  // Everything loaded and nothing the token could read: draw nothing rather than an empty heading.
+  // Nothing could be loaded: render nothing rather than an empty heading.
   if (status === 'done' && entries.length === 0) {
     return null;
   }
 
-  /*
-   * The section's own heading block, distinct from the per-entry header that
-   * EntryHeader draws. Shown as soon as any one of the three has content.
-   */
   const hasHeader = heading || subHeading || description;
   const canLoadMore = status === 'idle' || status === 'loading-more' || status === 'error-more';
 
   return (
     <div className="lookbook">
       {hasHeader && (
-        /*
-         * `page-width` keeps the header in the theme container even when a look
-         * below it runs full width, so headings line up down the page.
-         *
-         * Deliberately NOT using Dawn's `title-wrapper-with-link`: that class
-         * sets `margin: 3rem 0 2rem` at the same specificity as `page-width`'s
-         * `margin: 0 auto` but later in base.css, so it won the cascade and
-         * zeroed the auto margins — the header kept its max-width but sat
-         * flush against the viewport edge while the looks below stayed centred.
-         */
+        // Not Dawn's title-wrapper-with-link: its margins break the centring (docs/gotchas.md).
         <div className="lookbook__header page-width">
           {heading && (
-            /*
-              An inline_richtext setting, so the merchant can bold or italicise
-              part of it. Rendered as text it would show the tags literally.
-            */
+            // A rich text setting, so it's rendered as HTML.
             <h2
               className={`lookbook__heading title inline-richtext ${headingSize}`}
               dangerouslySetInnerHTML={{ __html: heading }}
@@ -75,12 +49,7 @@ export default function Lookbook({
           {subHeading && <p className="lookbook__sub-heading">{subHeading}</p>}
 
           {description && (
-            /*
-              A `richtext` setting, so this is already HTML from Liquid rather
-              than the document tree a metaobject rich text field returns —
-              RichText is for the latter and would not help here. Authored by
-              staff in the theme editor, not by shoppers.
-            */
+            // Already HTML, written in the theme editor.
             <div
               className="lookbook__description rte"
               dangerouslySetInnerHTML={{ __html: description }}

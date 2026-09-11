@@ -1,17 +1,6 @@
 /*
- * Renders a Shopify rich text field.
- *
- * Rich text metaobject fields are not HTML — they are a document tree that
- * looks like this:
- *
- *   { type: 'root', children: [
- *     { type: 'paragraph', children: [
- *       { type: 'text', value: 'Discreption', bold: false, italic: false } ] } ] }
- *
- * The Storefront API returns that tree as the field's value, serialised as
- * JSON; storefront.js parses it and it is walked here. That also means the
- * markup is fully under our control — a paragraph can become whatever the
- * design needs, rather than whatever Shopify would have emitted.
+ * Renders a Shopify rich text field. The API returns it as a document tree
+ * (root > paragraph > text, and so on), not as HTML.
  */
 
 function Nodes({ nodes }) {
@@ -30,7 +19,7 @@ function Node({ node }) {
       return <p>{children}</p>;
 
     case 'heading': {
-      // Clamped so a level outside 1-6 cannot produce an invalid tag name.
+      // Keep the level between 1 and 6 so the tag is always valid.
       const level = Math.min(Math.max(node.level ?? 2, 1), 6);
       const Tag = `h${level}`;
       return <Tag>{children}</Tag>;
@@ -62,7 +51,7 @@ function Node({ node }) {
     }
 
     default:
-      // Unknown node type: render its children rather than dropping the content.
+      // Unknown node type: still show its content.
       return children;
   }
 }

@@ -3,34 +3,15 @@ import Lookbook from './Lookbook.jsx';
 import { createLookbookLoader } from './storefront.js';
 
 /*
- * Mount layer.
- *
- * Liquid renders a <div data-lookbook="<id of a JSON script tag>"> holding
- * skeleton placeholders, plus a <script type="application/json"> with the
- * section's settings and the ids of the looks to show. For each pair this file
- * loads the first looks through the Storefront API and only then mounts React,
- * which replaces the placeholders with the looks in a single render. The
- * skeleton therefore stays up, from the first paint, until there is something
- * to show in its place.
- *
- * The Shopify theme editor re-renders a whole section every time the merchant
- * changes a setting. Without the shopify:section:load / :unload handling below,
- * the section would either go blank after an edit or leak a second React root
- * on top of the first.
+ * Entry point. For each [data-lookbook] element: read the JSON from Liquid, load
+ * the first looks, then mount React (which replaces the placeholder looks).
+ * Also remounts sections when the theme editor reloads them.
  */
 
 const SELECTOR = '[data-lookbook]';
 
-/*
- * The theme editor can re-insert (and therefore re-run) a section script tag
- * when the section is re-rendered. Hanging the root registry off window keeps a
- * second execution from losing track of the roots the first one created, which
- * would otherwise mount React twice into the same node.
- *
- * An element maps to `null` while its first looks are loading, so a second
- * mount call does not start another request, and an unmount during the load is
- * noticed when the load finishes.
- */
+// Kept on window so a theme editor re-run of this script doesn't mount twice.
+// A value of null means the first looks are still loading.
 const roots = (window.__lookbookRoots ||= new Map());
 
 function readPayload(el) {
@@ -44,8 +25,7 @@ function readPayload(el) {
   try {
     return JSON.parse(dataNode.textContent);
   } catch (error) {
-    // Almost always an unescaped character from Liquid — check that every field
-    // in snippets/lookbook.liquid is piped through the `json` filter.
+    // Usually a value in snippets/lookbook.liquid that is missing the `json` filter.
     console.error('[lookbook] could not parse JSON payload', error);
     return null;
   }
@@ -59,6 +39,7 @@ async function mount(el) {
 
   roots.set(el, null);
 
+  // Load before mounting, so React swaps the placeholders for looks in one render.
   const loader = createLookbookLoader(payload.source);
   let firstBatch;
   try {
@@ -68,7 +49,7 @@ async function mount(el) {
     firstBatch = { entries: [], hasMore: false, failed: true };
   }
 
-  // Unmounted by the theme editor while the looks were loading.
+  // The theme editor removed the section while it was loading.
   if (roots.get(el) !== null || !el.isConnected) return;
 
   const root = createRoot(el);
@@ -81,7 +62,7 @@ function unmount(el) {
 
   const root = roots.get(el);
   roots.delete(el);
-  // Deferred so React is never asked to unmount mid-render.
+  // Deferred so React isn't unmounted in the middle of a render.
   if (root) queueMicrotask(() => root.unmount());
 }
 
@@ -101,11 +82,10 @@ if (document.readyState === 'loading') {
   mountWithin(document);
 }
 
-// Same reason as the registry above: register the editor listeners only once.
+// Theme editor events (they never fire on the live store). Registered only once.
 if (!window.__lookbookListening) {
   window.__lookbookListening = true;
 
-  // Fired by the theme editor only — no-ops on the live storefront.
   document.addEventListener('shopify:section:load', (event) => mountWithin(event.target));
   document.addEventListener('shopify:section:unload', (event) => unmountWithin(event.target));
 }

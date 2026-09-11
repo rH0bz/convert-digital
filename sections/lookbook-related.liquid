@@ -1,25 +1,7 @@
 {%- comment -%}
-  ============================================================================
-  Related lookbook — the Lookbook section for product pages.
-
-  Same snippet, same templates and the same settings as sections/lookbook.liquid,
-  less the entry picker; what differs is which looks appear. A look appears when
-  it features the product being viewed — through its picked products, or through
-  the collection it points at — so the metaobject itself is the relationship and
-  there is nothing to pick here.
-
-  How many appear is "Maximum entries to show", the same control the Lookbook
-  section has. It defaults to 2 here, the most a product page is meant to show.
-  A product in more looks than the limit shows the first ones, in the order set
-  in Settings > Custom data.
-
-  Each look is drawn whole and with its own Template, exactly as the Lookbook
-  section draws it: the product being viewed stays in the look, and no template
-  is forced on the section.
-
-  Outputs nothing at all when no look features the product, so it is safe to
-  leave on the product template for every product.
-  ============================================================================
+  Related lookbook: product pages only. Shows the looks that include the product
+  being viewed (up to "Maximum entries to show", default 2). Same snippet,
+  templates and settings as the Lookbook section, minus the entry picker.
 {%- endcomment -%}
 
 {%- capture lookbook_markup -%}
@@ -39,11 +21,7 @@
   -%}
 {%- endcapture -%}
 
-{%- comment -%}
-  The snippet outputs nothing when no look features this product, except in the
-  theme editor, where it explains why. Skipping the wrapper as well means those
-  products get no empty padded gap and do not load the React bundle.
-{%- endcomment -%}
+{%- comment -%} Skip the wrapper when no look includes this product. {%- endcomment -%}
 {%- assign lookbook_markup = lookbook_markup | strip -%}
 {%- if lookbook_markup != blank -%}
   {{ 'section-lookbook.css' | asset_url | stylesheet_tag }}

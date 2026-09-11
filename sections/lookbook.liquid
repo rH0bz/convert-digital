@@ -1,20 +1,7 @@
 {%- comment -%}
-  ============================================================================
-  Lookbook section.
-
-  A thin wrapper: it owns the theme-editor settings, the colour scheme and the
-  padding, then hands everything to snippets/lookbook.liquid, which owns the
-  field keys and the payload. That split is what lets a lookbook be rendered
-  outside this section — see the snippet's header for its parameters.
-
-  Disabled on product templates. There the lookbook is
-  sections/lookbook-related.liquid, which takes its looks from the product being
-  viewed and deliberately offers no entry picker.
-
-  Note there is no `page-width` on the wrapper below. Container width is set per
-  entry by the template component, because the Full width template has to escape
-  the container that Default and Masonry sit inside.
-  ============================================================================
+  Lookbook section: the theme editor settings and the section wrapper.
+  The work happens in snippets/lookbook.liquid. Not available on product pages,
+  which use the Related lookbook section instead.
 {%- endcomment -%}
 
 {%- capture lookbook_markup -%}
@@ -35,11 +22,7 @@
   -%}
 {%- endcapture -%}
 
-{%- comment -%}
-  The snippet outputs nothing when there is nothing to load — no Storefront API
-  token, or no entries — except in the theme editor, where it explains why.
-  Skipping the wrapper as well keeps an empty padded gap off the page.
-{%- endcomment -%}
+{%- comment -%} Skip the wrapper when the snippet has nothing to show. {%- endcomment -%}
 {%- assign lookbook_markup = lookbook_markup | strip -%}
 {%- if lookbook_markup != blank -%}
   {{ 'section-lookbook.css' | asset_url | stylesheet_tag }}

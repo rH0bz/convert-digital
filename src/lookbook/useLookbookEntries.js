@@ -1,16 +1,9 @@
 /*
- * The looks on the page, and Show more.
+ * State for the looks on the page and the Show more button. Starts with the first
+ * batch (loaded by index.jsx) and loads one more batch per click.
  *
- * The first batch is loaded before React mounts (see index.jsx), while the
- * skeleton from Liquid is still on screen, so this starts with looks in hand and
- * only ever loads more — one batch per Show more click (see storefront.js).
- *
- * status is one of:
- *   'error'         the first batch failed, so there is nothing to show
- *   'idle'          looks are shown and more can be loaded
- *   'loading-more'  a further batch is on its way
- *   'error-more'    a further batch failed; Show more is offered again
- *   'done'          every look is shown
+ * status: 'error' (first batch failed), 'idle' (more to load), 'loading-more',
+ * 'error-more' (a later batch failed; Show more is offered again) or 'done'.
  */
 
 import { useState } from 'react';

@@ -1,9 +1,6 @@
 /*
- * Unit tests for src/lookbook/storefront.js, which loads every look through the
- * Storefront API.
- *
- * No network: API responses are written by hand in the shape the queries in
- * storefront.js ask for, and the loader is given fake fetchers.
+ * Tests for src/lookbook/storefront.js: requests, mapping and the loader.
+ * No network: API responses are written by hand and the loader gets fake fetchers.
  */
 
 import { describe, test } from 'node:test';

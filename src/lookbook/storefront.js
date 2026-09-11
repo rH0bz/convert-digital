@@ -1,34 +1,13 @@
 /*
- * Storefront API client — every look the lookbook shows is loaded here.
- *
- * Liquid (snippets/lookbook.liquid) decides WHICH looks a section shows and in
- * what order, and writes their ids into the payload: the entries a merchant
- * picked, every entry in admin order, or the entries that feature the product
- * on a product page. This module loads everything else about those looks —
- * titles, descriptions, templates, products and images — through the
- * Storefront API, and converts each one into the entry shape the templates
- * draw.
- *
- * Liquid can loop over at most 50 entries of a metaobject definition. When a
- * full list reaches that cap, loading carries on past it through the API's own
- * pagination.
- *
- * Metaobjects cannot be read tokenless. The token comes from the Headless
- * channel, needs the unauthenticated_read_metaobjects and
- * unauthenticated_read_product_listings permissions, and is pasted into
- * Theme settings > Storefront API.
- *
- * Kept free of React and JSX so it runs under `node --test` as it is.
+ * Storefront API client. Loads looks by id (titles, products, images) and turns
+ * each result into the entry shape the templates use.
+ * How it works: docs/how-it-works.md
  */
 
-/*
- * Looks per API request. Kept small because every look carries up to three
- * product connections (picked, legacy picked and collection), each with
- * images, and the cost of a query grows with all of them.
- */
+// Looks per request. Kept small because each look also pulls its products and images.
 export const API_PAGE_SIZE = 6;
 
-// Must match the field keys at the top of snippets/lookbook.liquid.
+// Metaobject field keys. Keep in sync with snippets/lookbook.liquid.
 export const FIELD_KEYS = {
   title: 'title',
   subHeading: 'sub_heading',
@@ -81,7 +60,7 @@ const LOOKBOOK_FRAGMENTS = `
   }
 `;
 
-/* Specific looks by id, returned in the order the ids are given. How every section first loads. */
+// Looks by id, returned in the same order. Used for the first load.
 export const LOOKBOOK_ENTRIES_QUERY = `
   query LookbookEntries(
     $ids: [ID!]!
@@ -96,7 +75,7 @@ export const LOOKBOOK_ENTRIES_QUERY = `
   ${LOOKBOOK_FRAGMENTS}
 `;
 
-/* Every look, a page at a time. Only used past the 50 entries Liquid can list. */
+// Every look, page by page. Only used past the 50 entries Liquid can list.
 export const LOOKBOOK_PAGE_QUERY = `
   query LookbookPage(
     $first: Int!
@@ -118,37 +97,29 @@ export const LOOKBOOK_PAGE_QUERY = `
   ${LOOKBOOK_FRAGMENTS}
 `;
 
-/* "gid://shopify/Metaobject/123" and 123 both become "123", so ids from Liquid and the API compare equal. */
+// "gid://shopify/Metaobject/123" and 123 both become "123", so ids can be compared.
 export function numericId(id) {
   return String(id ?? '').split('/').pop();
 }
 
-/* Shopify locales look like "en" or "pt-BR"; the API's LanguageCode enum reads EN and PT_BR. */
+// "pt-BR" becomes "PT_BR", the API's language code format.
 export function languageCode(locale) {
   return locale ? String(locale).toUpperCase().replace('-', '_') : null;
 }
 
-/*
- * Only the Masonry - Product Images template draws more than one image per
- * product. Matched loosely on the raw choice value, like the template registry
- * normalises it, so "masonry_product_images" counts too.
- */
+// Only "Masonry - Product Images" shows more than one image per product.
 export function imagesPerProduct(template) {
   const value = String(template ?? '').toLowerCase().replace(/[-_]/g, ' ');
   return value.includes('product image') ? 3 : 1;
 }
 
-/*
- * routes.root_url is "/" or a market or language prefix such as "/fr". Liquid's
- * product.url carries the same prefix, so product links stay in the visitor's
- * market and language.
- */
+// Keeps the visitor's market or language prefix, e.g. "/fr/products/handle".
 function productUrl(rootUrl, handle) {
   const root = String(rootUrl ?? '/').replace(/\/$/, '');
   return `${root}/products/${handle}`;
 }
 
-/* A rich text field's value is its document tree, serialised as JSON. */
+// Rich text arrives as a JSON string.
 function parseRichText(value) {
   if (!value) return null;
 
@@ -174,14 +145,14 @@ function toProduct(product, { rootUrl, imageLimit }) {
   };
 }
 
-/* One API metaobject in, one entry out — the shape the templates draw. */
+// Turns one API metaobject into an entry for the templates.
 export function toEntry(node, { rootUrl, productsLimit }) {
   const template = node.template?.value ?? '';
   const source = (node.productsSource?.value ?? '').toLowerCase();
 
   let products;
   if (source.includes('collection')) {
-    // A Collection look with no collection has no products, never its picked list.
+    // No collection chosen means no products, not the picked list.
     products = node.collection?.reference?.products?.nodes ?? [];
   } else {
     const picked = node.products?.references?.nodes ?? [];
@@ -197,14 +168,14 @@ export function toEntry(node, { rootUrl, productsLimit }) {
     descriptionTree: parseRichText(node.description?.value),
     template,
     products: products
-      // A reference the token cannot read, such as an unpublished product, arrives empty.
+      // Products the token can't read (e.g. unpublished) come back empty.
       .filter((product) => product?.handle)
       .slice(0, productsLimit)
       .map((product) => toProduct(product, { rootUrl, imageLimit })),
   };
 }
 
-/* One GraphQL request. Throws on an HTTP or GraphQL error. */
+// Sends one GraphQL request. Throws on an HTTP or GraphQL error.
 async function request(storefront, query, variables, fetchImpl) {
   const response = await fetchImpl(storefront.endpoint, {
     method: 'POST',
@@ -234,10 +205,7 @@ async function request(storefront, query, variables, fetchImpl) {
   return data;
 }
 
-/*
- * Loads looks by id, in the order given, API_PAGE_SIZE ids per request. An id
- * the token cannot read comes back null and is left out.
- */
+// Loads looks by id, API_PAGE_SIZE ids per request. Ids the token can't read are skipped.
 export async function fetchLookbookEntries(storefront, ids, productsLimit, fetchImpl = fetch) {
   const chunks = [];
   for (let start = 0; start < ids.length; start += API_PAGE_SIZE) {
@@ -251,7 +219,7 @@ export async function fetchLookbookEntries(storefront, ids, productsLimit, fetch
   return pages.flatMap((data) => data.nodes).filter((node) => node?.id);
 }
 
-/* One page of every look, after the given cursor. */
+// Loads the next page of all looks.
 export async function fetchLookbookPage(storefront, after, productsLimit, fetchImpl = fetch) {
   const data = await request(
     storefront,
@@ -264,13 +232,9 @@ export async function fetchLookbookPage(storefront, after, productsLimit, fetchI
 }
 
 /*
- * Hands out looks `source.pageSize` at a time: first the ids Liquid listed, in
- * its order, then — only when `source.continuePaging` says that list hit
- * Liquid's 50-entry cap — the API's own pages, skipping looks already listed.
- *
- * Looks fetched beyond the current batch wait in a buffer: dropping them would
- * lose them, because the cursor has already moved past. Ids leave the queue
- * only once they have loaded, so a failed request is retried on the next call.
+ * Hands out looks in batches of source.pageSize: first the ids from Liquid, then,
+ * if continuePaging is on, the API's own pages (skipping looks already shown).
+ * Call next() again to retry after a failed request.
  */
 export function createLookbookLoader(
   source,
@@ -292,6 +256,7 @@ export function createLookbookLoader(
         if (queue.length > 0) {
           const ids = queue.slice(0, pageSize - buffer.length);
           buffer.push(...(await fetchEntries(storefront, ids, productsLimit)));
+          // Ids leave the queue only after they load, so a failed request is retried.
           queue.splice(0, ids.length);
         } else {
           const page = await fetchPage(storefront, cursor, productsLimit);

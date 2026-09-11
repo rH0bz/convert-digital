@@ -1,24 +1,7 @@
 {%- comment -%}
-  ============================================================================
-  Lookbook skeleton — placeholder looks for the lookbook's mount point.
-
-  snippets/lookbook.liquid renders this inside <div data-lookbook>, one
-  placeholder per look in the first batch, so the section has its shape from
-  the first paint. src/lookbook/index.jsx loads those looks through the
-  Storefront API and then mounts React, which replaces these placeholders with
-  the looks in a single render.
-
-  A placeholder is shaped like a look in general — a title, a line of text and
-  a row of product cards — rather than like one template, because each look's
-  template is only known once the API has answered.
-
-  The placeholders are hidden from assistive technology; the visually hidden
-  status announces that the lookbook is loading instead.
-
-  ACCEPTS
-    looks        how many placeholder looks to draw
-    show_header  also draw a placeholder for the section heading
-  ============================================================================
+  Placeholder looks shown inside the lookbook until the Storefront API responds.
+  Rendered by snippets/lookbook.liquid; React replaces it once the looks load.
+  Params: looks (how many placeholders), show_header (heading placeholder).
 {%- endcomment -%}
 
 <div class="lookbook lookbook--skeleton">
