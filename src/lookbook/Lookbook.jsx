@@ -2,9 +2,10 @@
  * The renderer.
  *
  * Liquid writes the section's settings and the ids of the looks to show into
- * the page (snippets/lookbook.liquid). The looks themselves are loaded through
- * the Storefront API as soon as this mounts, and more with the Show more button
- * — see useLookbookEntries.js and storefront.js.
+ * the page (snippets/lookbook.liquid). index.jsx loads the first looks through
+ * the Storefront API and only then mounts this, so it starts with looks in hand;
+ * further batches come from the Show more button — see useLookbookEntries.js
+ * and storefront.js.
  *
  * Each entry names a template, and the component for it comes from
  * ./templates. Per-entry templates are why the container width is set inside
@@ -26,10 +27,11 @@ export default function Lookbook({
   showDescription = true,
   masonryRowHeight = 120,
   productCtaLabel,
-  source,
+  loader,
+  firstBatch,
   labels: escapedLabels = {},
 }) {
-  const { entries, status, loadMore } = useLookbookEntries(source);
+  const { entries, status, loadMore } = useLookbookEntries(loader, firstBatch);
   // Shopify's `t` filter HTML-escapes the labels; see translations.js.
   const labels = useMemo(() => unescapeTranslations(escapedLabels), [escapedLabels]);
 
@@ -40,8 +42,7 @@ export default function Lookbook({
 
   /*
    * The section's own heading block, distinct from the per-entry header that
-   * EntryHeader draws. Shown as soon as any one of the three has content, and
-   * straight away — it comes from Liquid, so it does not wait for the API.
+   * EntryHeader draws. Shown as soon as any one of the three has content.
    */
   const hasHeader = heading || subHeading || description;
   const canLoadMore = status === 'idle' || status === 'loading-more' || status === 'error-more';
@@ -86,12 +87,6 @@ export default function Lookbook({
             />
           )}
         </div>
-      )}
-
-      {status === 'loading' && (
-        <p className="lookbook__status page-width" role="status">
-          {labels.loading}
-        </p>
       )}
 
       {status === 'error' && (

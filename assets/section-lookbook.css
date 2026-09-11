@@ -482,8 +482,93 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Loading state — shown under the section header while the Storefront API
-   request for the first looks is on its way, or in its place if it fails.
+   Skeleton — placeholder looks drawn by snippets/lookbook-skeleton.liquid from
+   the first paint until the Storefront API has returned the first looks.
+
+   Shaped like a look in general (a title, a line of text, a row of cards)
+   rather than like one template, which is only known once the API answers. A
+   light band sweeps across each placeholder so the section reads as loading
+   rather than broken; it stays still for visitors who ask for less motion.
+   --------------------------------------------------------------------------- */
+
+.lookbook__skeleton-bar,
+.lookbook__skeleton-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background-color: rgba(var(--color-foreground), 0.07);
+}
+
+.lookbook__skeleton-bar {
+  height: 1.6rem;
+  border-radius: 0.4rem;
+}
+
+.lookbook__skeleton-bar--heading {
+  width: min(28rem, 60%);
+  height: 4rem;
+}
+
+.lookbook__skeleton-bar--title {
+  width: min(32rem, 70%);
+  height: 3.2rem;
+}
+
+.lookbook__skeleton-bar--line {
+  width: min(56rem, 90%);
+  margin-top: 1.2rem;
+}
+
+/* Also a .lookbook__products, so it takes the shared gap. */
+.lookbook__skeleton-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 2.4rem;
+}
+
+.lookbook__skeleton-card {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--media-radius, 0);
+}
+
+.lookbook__skeleton-bar::after,
+.lookbook__skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    rgba(var(--color-background), 0),
+    rgba(var(--color-background), 0.6),
+    rgba(var(--color-background), 0)
+  );
+  transform: translateX(-100%);
+  animation: lookbook-skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes lookbook-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media screen and (max-width: 749px) {
+  /* Two up on phones, like the looks that replace them. */
+  .lookbook__skeleton-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lookbook__skeleton-bar::after,
+  .lookbook__skeleton-card::after {
+    display: none;
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Error state — shown in place of the looks when the first Storefront API
+   request fails.
    --------------------------------------------------------------------------- */
 
 .lookbook__status {

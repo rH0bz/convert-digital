@@ -1,48 +1,41 @@
 /*
- * Loads a lookbook's looks through the Storefront API: the first batch as soon
- * as the section mounts, then one batch per Show more click (see storefront.js
- * for what a batch is).
+ * The looks on the page, and Show more.
+ *
+ * The first batch is loaded before React mounts (see index.jsx), while the
+ * skeleton from Liquid is still on screen, so this starts with looks in hand and
+ * only ever loads more — one batch per Show more click (see storefront.js).
  *
  * status is one of:
- *   'loading'       the first batch is on its way
  *   'error'         the first batch failed, so there is nothing to show
  *   'idle'          looks are shown and more can be loaded
  *   'loading-more'  a further batch is on its way
  *   'error-more'    a further batch failed; Show more is offered again
  *   'done'          every look is shown
- *
- * `source` comes straight from the parsed payload, so it keeps one identity for
- * the life of the section and the first batch is requested exactly once.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createLookbookLoader } from './storefront.js';
+import { useState } from 'react';
 
-export default function useLookbookEntries(source) {
-  const [entries, setEntries] = useState([]);
-  const [status, setStatus] = useState('loading');
-  const loader = useRef(null);
+function initialStatus(firstBatch) {
+  if (firstBatch.failed) return 'error';
+  return firstBatch.hasMore ? 'idle' : 'done';
+}
 
-  const load = useCallback(
-    async (isFirstBatch) => {
-      loader.current ??= createLookbookLoader(source);
-      setStatus(isFirstBatch ? 'loading' : 'loading-more');
+export default function useLookbookEntries(loader, firstBatch) {
+  const [entries, setEntries] = useState(firstBatch.entries);
+  const [status, setStatus] = useState(() => initialStatus(firstBatch));
 
-      try {
-        const batch = await loader.current.next();
-        setEntries((current) => [...current, ...batch.entries]);
-        setStatus(batch.hasMore ? 'idle' : 'done');
-      } catch (error) {
-        console.error('[lookbook] could not load looks from the Storefront API', error);
-        setStatus(isFirstBatch ? 'error' : 'error-more');
-      }
-    },
-    [source],
-  );
+  async function loadMore() {
+    setStatus('loading-more');
 
-  useEffect(() => {
-    load(true);
-  }, [load]);
+    try {
+      const batch = await loader.next();
+      setEntries((current) => [...current, ...batch.entries]);
+      setStatus(batch.hasMore ? 'idle' : 'done');
+    } catch (error) {
+      console.error('[lookbook] could not load more looks from the Storefront API', error);
+      setStatus('error-more');
+    }
+  }
 
-  return { entries, status, loadMore: () => load(false) };
+  return { entries, status, loadMore };
 }

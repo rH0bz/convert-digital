@@ -1,0 +1,44 @@
+{%- comment -%}
+  ============================================================================
+  Lookbook skeleton — placeholder looks for the lookbook's mount point.
+
+  snippets/lookbook.liquid renders this inside <div data-lookbook>, one
+  placeholder per look in the first batch, so the section has its shape from
+  the first paint. src/lookbook/index.jsx loads those looks through the
+  Storefront API and then mounts React, which replaces these placeholders with
+  the looks in a single render.
+
+  A placeholder is shaped like a look in general — a title, a line of text and
+  a row of product cards — rather than like one template, because each look's
+  template is only known once the API has answered.
+
+  The placeholders are hidden from assistive technology; the visually hidden
+  status announces that the lookbook is loading instead.
+
+  ACCEPTS
+    looks        how many placeholder looks to draw
+    show_header  also draw a placeholder for the section heading
+  ============================================================================
+{%- endcomment -%}
+
+<div class="lookbook lookbook--skeleton">
+  <p class="visually-hidden" role="status">{{ 'accessibility.loading' | t }}</p>
+
+  {%- if show_header -%}
+    <div class="lookbook__header page-width" aria-hidden="true">
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--heading"></span>
+    </div>
+  {%- endif -%}
+
+  {%- for look in (1..looks) -%}
+    <div class="lookbook__entry lookbook__skeleton page-width" aria-hidden="true">
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--title"></span>
+      <span class="lookbook__skeleton-bar lookbook__skeleton-bar--line"></span>
+      <div class="lookbook__products lookbook__skeleton-cards">
+        {%- for card in (1..4) -%}
+          <span class="lookbook__skeleton-card"></span>
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endfor -%}
+</div>

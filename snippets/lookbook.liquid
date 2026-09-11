@@ -53,6 +53,9 @@
                         capped by `entries_limit` and load all at once.
 
   OUTPUT
+  The JSON payload, and the mount point holding skeleton placeholders for the
+  first looks (snippets/lookbook-skeleton.liquid) until React replaces them.
+
   Nothing at all when there is no token or no entry to show, apart from the
   theme-editor notices. A caller can capture the render and skip its own
   wrapper when the result is blank — both lookbook sections do, so an empty
@@ -279,6 +282,16 @@
   assign script_close = '</scr' | append: 'ipt>'
   assign script_close_safe = '<\/scr' | append: 'ipt>'
 -%}
+{%- liquid
+  # Placeholders for the looks in the first batch, drawn from the first paint
+  # until the Storefront API has returned them. Capped, so a long picked list
+  # does not fill the page with placeholders.
+  assign skeleton_looks = page_size | at_most: emitted_entries | at_most: 6
+  assign skeleton_header = false
+  if heading != blank or sub_heading != blank or description != blank
+    assign skeleton_header = true
+  endif
+-%}
 {%- comment -%}
   Nothing to load, no mount point: a blank result is what the OUTPUT contract in
   the header promises callers.
@@ -288,7 +301,9 @@
   {{- payload | replace: script_close, script_close_safe -}}
 </script>
 
-<div data-lookbook="LookbookData-{{ uid }}"></div>
+<div data-lookbook="LookbookData-{{ uid }}">
+  {%- render 'lookbook-skeleton', looks: skeleton_looks, show_header: skeleton_header -%}
+</div>
 {%- endif -%}
 
 {%- if request.design_mode and show_notices -%}
