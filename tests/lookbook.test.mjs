@@ -380,3 +380,36 @@ describe('Without a token or entries', () => {
     assert.match(html, /set to Collection but has no collection picked/);
   });
 });
+
+describe('Skeleton', () => {
+  const placeholderLooks = (html) =>
+    (html.match(/class="lookbook__entry lookbook__skeleton page-width" aria-hidden="true"/g) || []).length;
+
+  test('draws one placeholder per look in the first batch', async () => {
+    assert.equal(placeholderLooks((await renderSection(HOME)).html), 6);
+    assert.equal(placeholderLooks((await renderSection(HOME, { settings: { entries_limit: 2 } })).html), 2);
+    assert.equal(placeholderLooks((await renderSection(RELATED, { product: products[1] })).html), 2);
+  });
+
+  test('draws at most six placeholders, however long the list', async () => {
+    const twelve = Array.from({ length: 12 }, (_, index) => makeLook(index + 1, { picked: [] }));
+    const { html } = await renderSection(HOME, { settings: { entry_source: 'selected', entries: twelve } });
+
+    assert.equal(placeholderLooks(html), 6);
+  });
+
+  test('sits inside the mount point and announces that the lookbook is loading', async () => {
+    const { html } = await renderSection(HOME);
+
+    assert.ok(html.indexOf('data-lookbook=') < html.indexOf('lookbook--skeleton'));
+    assert.match(html, /class="visually-hidden" role="status">Loading\.\.\.<\/p>/);
+  });
+
+  test('draws a heading placeholder only when the section has a heading', async () => {
+    const withHeading = await renderSection(HOME);
+    const withoutHeading = await renderSection(HOME, { settings: { heading: '' } });
+
+    assert.match(withHeading.html, /lookbook__skeleton-bar--heading/);
+    assert.doesNotMatch(withoutHeading.html, /lookbook__skeleton-bar--heading/);
+  });
+});
