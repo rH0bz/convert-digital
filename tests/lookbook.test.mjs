@@ -2,10 +2,14 @@
  * Render tests for the lookbook payload.
  *
  * Both lookbook sections are rendered through liquidjs with Shopify's filters
- * stubbed, and the JSON payload the React renderer would receive is parsed and
- * checked. This covers what neither `npm run build` nor `shopify theme check`
- * can see: a malformed payload, which blanks the section with only a console
- * error, and the product page rules in sections/lookbook-related.liquid.
+ * stubbed, and the JSON payload the React renderer receives is parsed and
+ * checked. Liquid decides which looks a section shows — their ids, in order —
+ * and passes on what the renderer needs to load them through the Storefront
+ * API. The loading itself is covered by storefront.test.mjs.
+ *
+ * This covers what neither `npm run build` nor `shopify theme check` can see: a
+ * malformed payload, which blanks the section with only a console error, and
+ * the rules for which looks each section lists.
  *
  * liquidjs is close to Shopify's Liquid but not identical. It unescapes string
  * literals, so the closing-script guard in snippets/lookbook.liquid is a no-op
@@ -23,6 +27,7 @@ const THEME = fileURLToPath(new URL('..', import.meta.url));
 const RELATED = 'sections/lookbook-related.liquid';
 const HOME = 'sections/lookbook.liquid';
 const PICKER_SETTINGS = ['entry_source', 'entries'];
+const TOKEN = 'public-token';
 
 const read = (file) => fs.readFileSync(path.join(THEME, file), 'utf8');
 
@@ -37,61 +42,46 @@ const engine = new Liquid({
   extname: '.liquid',
 });
 
-const keywordArg = (args, key) => args.find((arg) => Array.isArray(arg) && arg[0] === key)?.[1];
-
 // Shopify's `json` prints nil as null; liquidjs's built-in would print nothing.
 engine.registerFilter('json', (value) => JSON.stringify(value === undefined ? null : value));
 engine.registerFilter('asset_url', (file) => `/cdn/assets/${file}`);
 engine.registerFilter('stylesheet_tag', (url) => `<link rel="stylesheet" href="${url}">`);
-engine.registerFilter('image_url', (image, ...args) => `${image.src}?width=${keywordArg(args, 'width')}`);
-engine.registerFilter('metafield_tag', (field) => (field?.value ? '<p>rich text</p>' : ''));
 
-// Reads the real default locale file, so a key missing from it fails the payload tests.
+// Reads the real default locale file, so a key missing from it fails the payload tests. Like
+// Shopify's, it HTML-escapes the translation: "Couldn't" reaches the payload as "Couldn&#39;t".
 const translations = readJson('locales/en.default.json');
-engine.registerFilter(
-  't',
-  (key) => key.split('.').reduce((node, part) => node?.[part], translations) ?? `translation missing: ${key}`,
-);
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+engine.registerFilter('t', (key) => {
+  const translation = key.split('.').reduce((node, part) => node?.[part], translations);
+  return translation === undefined
+    ? `translation missing: ${key}`
+    : translation.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+});
 
 // ------------------------------------------------------------------ Fixtures
 
-const makeProduct = (id, { images = 1, collections = [] } = {}) => ({
+const makeProduct = (id, { collections = [] } = {}) => ({
   id,
-  // Quotes and markup, so a value that skipped the `json` filter breaks the payload.
-  title: `Product "${id}" <b>`,
-  url: `/products/p${id}`,
-  images: Array.from({ length: images }, (_, index) => ({
-    src: `//cdn/p${id}-${index + 1}.jpg`,
-    alt: index ? `Alt ${id}-${index + 1}` : '',
-    width: 1000,
-    height: 1250,
-  })),
+  title: `Product ${id}`,
   collections: collections.map((handle) => ({ handle })),
 });
 
 const products = {
-  1: makeProduct(1, { images: 3, collections: ['summer'] }),
-  2: makeProduct(2, { images: 2 }),
+  1: makeProduct(1, { collections: ['summer'] }),
+  2: makeProduct(2),
   3: makeProduct(3),
   4: makeProduct(4, { collections: ['summer'] }),
-  5: makeProduct(5, { images: 0 }),
+  5: makeProduct(5),
   6: makeProduct(6),
   7: makeProduct(7),
 };
 
 const summer = { handle: 'summer', products: [products[1], products[4]] };
 
-const makeLook = (id, { template = '', picked, legacyKey = false, source, collection } = {}) => ({
-  system: { id: `gid://shopify/Metaobject/${id}` },
+// Liquid's metaobject id is a plain number; the payload turns it into a Storefront API GID.
+const makeLook = (id, { picked, legacyKey = false, source, collection } = {}) => ({
+  system: { id },
   title: { value: `Look ${id}` },
-  sub_heading: { value: `Sub heading ${id}` },
-  discreption: {
-    value: {
-      type: 'root',
-      children: [{ type: 'paragraph', children: [{ type: 'text', value: `Description ${id}` }] }],
-    },
-  },
-  template: { value: template },
   products_source: { value: source },
   collection: { value: collection },
   [legacyKey ? 'top_3_field' : 'select_products']: { value: picked },
@@ -103,18 +93,13 @@ const makeLook = (id, { template = '', picked, legacyKey = false, source, collec
  * in the last look. Products 5 and 7 are in none.
  */
 const looks = {
-  1: makeLook(1, { template: 'Masonry', picked: [products[1], products[2]] }),
-  2: makeLook(2, { template: 'Full Width', picked: [products[3], products[1]], legacyKey: true }),
-  3: makeLook(3, {
-    template: 'Masonry - Product Images',
-    source: 'From collection',
-    collection: summer,
-    picked: [products[7]],
-  }),
+  1: makeLook(1, { picked: [products[1], products[2]] }),
+  2: makeLook(2, { picked: [products[3], products[1]], legacyKey: true }),
+  3: makeLook(3, { source: 'From collection', collection: summer, picked: [products[7]] }),
   4: makeLook(4, { picked: [products[2], products[3]] }),
-  // Set to Collection with none picked: it renders no products, so it features none.
-  5: makeLook(5, { template: 'Default', source: 'Collection', picked: [products[7]] }),
-  6: makeLook(6, { template: 'Masonry', picked: [products[6]] }),
+  // Set to Collection with none picked: it has no products, so it features none.
+  5: makeLook(5, { source: 'Collection', picked: [products[7]] }),
+  6: makeLook(6, { picked: [products[6]] }),
 };
 
 const allLooks = Object.values(looks);
@@ -141,7 +126,7 @@ const templateSource = (file) =>
 
 async function renderSection(
   file,
-  { settings = {}, product, entries = allLooks, designMode = false, storefrontToken = '' } = {},
+  { settings = {}, product, entries = allLooks, designMode = false, storefrontToken = TOKEN } = {},
 ) {
   const html = await engine.parseAndRender(
     templateSource(file),
@@ -162,8 +147,7 @@ async function renderSection(
   return { html, payload: script ? JSON.parse(script[1]) : null };
 }
 
-const lookIds = (payload) => payload.entries.map((entry) => Number(entry.id.split('/').pop()));
-const productIds = (entry) => entry.products.map((product) => product.id);
+const lookIds = (payload) => payload.source.entryIds.map((id) => Number(id.split('/').pop()));
 
 // ------------------------------------------------------------------ Tests
 
@@ -212,11 +196,46 @@ describe('Related lookbook section', () => {
   });
 });
 
-describe('Related lookbook on a product page', () => {
-  test('shows the first two looks featuring the product by default, in admin order', async () => {
+describe('Which looks the Lookbook section lists', () => {
+  test('lists every entry as a Storefront API id, in admin order', async () => {
+    const { payload } = await renderSection(HOME);
+
+    assert.deepEqual(payload.source.entryIds, [1, 2, 3, 4, 5, 6].map((id) => `gid://shopify/Metaobject/${id}`));
+    assert.equal(payload.source.continuePaging, false);
+  });
+
+  test('loads Maximum entries to show at first and leaves the rest to Show more', async () => {
+    const { payload } = await renderSection(HOME, { settings: { entries_limit: 2 } });
+
+    assert.deepEqual(lookIds(payload), [1, 2, 3, 4, 5, 6]);
+    assert.equal(payload.source.pageSize, 2);
+  });
+
+  test('keeps the order of picked entries and loads them all at once', async () => {
+    const { payload } = await renderSection(HOME, {
+      settings: { entry_source: 'selected', entries: [looks[4], looks[2]], entries_limit: 1 },
+    });
+
+    assert.deepEqual(lookIds(payload), [4, 2]);
+    assert.equal(payload.source.pageSize, 2);
+  });
+
+  test('carries on through the API past the 50 entries Liquid can list', async () => {
+    const fifty = Array.from({ length: 50 }, (_, index) => makeLook(index + 1, { picked: [] }));
+    const { payload } = await renderSection(HOME, { entries: fifty });
+
+    assert.equal(payload.source.entryIds.length, 50);
+    assert.equal(payload.source.continuePaging, true);
+  });
+});
+
+describe('Which looks the Related lookbook lists on a product page', () => {
+  test('lists the first two looks featuring the product by default, in admin order', async () => {
     const { payload } = await renderSection(RELATED, { product: products[1] });
 
     assert.deepEqual(lookIds(payload), [1, 2]);
+    assert.equal(payload.source.pageSize, 2);
+    assert.equal(payload.source.continuePaging, false);
   });
 
   test('keeps admin order when the first entry does not match', async () => {
@@ -228,23 +247,13 @@ describe('Related lookbook on a product page', () => {
     assert.deepEqual(lookIds(payload), [3, 2]);
   });
 
-  test('shows as many looks as Maximum entries to show allows', async () => {
-    const shown = async (entries_limit) =>
+  test('lists as many looks as Maximum entries to show allows', async () => {
+    const listed = async (entries_limit) =>
       lookIds((await renderSection(RELATED, { product: products[1], settings: { entries_limit } })).payload);
 
-    assert.deepEqual(await shown(1), [1]);
-    assert.deepEqual(await shown(3), [1, 2, 3]);
-    assert.deepEqual(await shown(12), [1, 2, 3]);
-  });
-
-  test('draws each look whole, with its own template', async () => {
-    const { payload } = await renderSection(RELATED, { product: products[1] });
-
-    assert.deepEqual(payload.entries.map(productIds), [[1, 2], [3, 1]]);
-    assert.deepEqual(
-      payload.entries.map((entry) => entry.template),
-      ['Masonry', 'Full Width'],
-    );
+    assert.deepEqual(await listed(1), [1]);
+    assert.deepEqual(await listed(3), [1, 2, 3]);
+    assert.deepEqual(await listed(12), [1, 2, 3]);
   });
 
   test('skips looks that do not feature the product', async () => {
@@ -255,14 +264,8 @@ describe('Related lookbook on a product page', () => {
 
   test("matches a collection look through the product's collections", async () => {
     const { payload } = await renderSection(RELATED, { product: products[4] });
-    const [look] = payload.entries;
 
     assert.deepEqual(lookIds(payload), [3]);
-    assert.deepEqual(productIds(look), [1, 4]);
-    assert.deepEqual(
-      look.products.map((product) => product.images.length),
-      [3, 1],
-    );
   });
 
   test('matches when only the last look features the product', async () => {
@@ -289,8 +292,37 @@ describe('Related lookbook on a product page', () => {
     assert.equal(payload, null);
     assert.match(html, /No look features this product yet/);
   });
+});
 
-  test('passes settings through to the payload', async () => {
+describe('Storefront API payload', () => {
+  test('carries what the renderer needs to load the looks', async () => {
+    const { payload } = await renderSection(HOME, { storefrontToken: ` ${TOKEN} ` });
+
+    assert.deepEqual(payload.source.storefront, {
+      endpoint: 'https://example.myshopify.com/api/2026-07/graphql.json',
+      token: TOKEN,
+      country: 'FR',
+      language: 'pt-BR',
+      rootUrl: '/fr',
+    });
+    assert.equal(payload.source.productsLimit, 12);
+    assert.deepEqual(payload.labels, {
+      loadMore: 'Show more',
+      loading: 'Loading...',
+      // Escaped by `t`, exactly as Shopify writes them; Lookbook.jsx unescapes them.
+      loadMoreError: 'Couldn&#39;t load more. Please try again.',
+      loadError: 'Couldn&#39;t load the lookbook. Please try again.',
+    });
+  });
+
+  test('holds no look content: titles, products and images come from the API', async () => {
+    const { html, payload } = await renderSection(HOME);
+
+    assert.equal('entries' in payload, false);
+    assert.doesNotMatch(html, /Look 1|Product 1/);
+  });
+
+  test('passes section settings through', async () => {
     const { payload } = await renderSection(RELATED, {
       product: products[1],
       settings: {
@@ -302,7 +334,7 @@ describe('Related lookbook on a product page', () => {
       },
     });
 
-    assert.deepEqual(payload.entries.map(productIds), [[1], [3]]);
+    assert.equal(payload.source.productsLimit, 1);
     assert.equal(payload.showSubHeading, false);
     assert.equal(payload.showDescription, false);
     assert.equal(payload.productCtaLabel, '');
@@ -312,41 +344,33 @@ describe('Related lookbook on a product page', () => {
   test('uses the same section-level defaults as the Lookbook section', async () => {
     const related = await renderSection(RELATED, { product: products[1] });
     const home = await renderSection(HOME);
-    const { entries: _relatedEntries, ...relatedDefaults } = related.payload;
-    const { entries: _homeEntries, ...homeDefaults } = home.payload;
+    const { source: _relatedSource, ...relatedDefaults } = related.payload;
+    const { source: _homeSource, ...homeDefaults } = home.payload;
 
     assert.deepEqual(relatedDefaults, homeDefaults);
   });
 });
 
-describe('Lookbook section', () => {
-  test('renders every entry in admin order', async () => {
-    const { payload } = await renderSection(HOME);
+describe('Without a token or entries', () => {
+  test('outputs nothing without a Storefront API token', async () => {
+    const home = await renderSection(HOME, { storefrontToken: '' });
+    const related = await renderSection(RELATED, { product: products[1], storefrontToken: '' });
 
-    assert.deepEqual(lookIds(payload), [1, 2, 3, 4, 5, 6]);
-    assert.deepEqual(payload.entries.map(productIds), [[1, 2], [3, 1], [1, 4], [2, 3], [], [6]]);
+    assert.equal(home.html.trim(), '');
+    assert.equal(related.html.trim(), '');
   });
 
-  test('keeps the order of picked entries', async () => {
-    const { payload } = await renderSection(HOME, {
-      settings: { entry_source: 'selected', entries: [looks[4], looks[2]] },
-    });
+  test('asks for a token in the theme editor', async () => {
+    const { html } = await renderSection(HOME, { storefrontToken: '', designMode: true });
 
-    assert.deepEqual(lookIds(payload), [4, 2]);
+    assert.match(html, /Add a Storefront API token/);
   });
 
-  test('applies Maximum entries to show', async () => {
-    const { payload } = await renderSection(HOME, { settings: { entries_limit: 3 } });
-
-    assert.deepEqual(lookIds(payload), [1, 2, 3]);
-  });
-
-  test('renders no mount point without entries, and explains why in the theme editor', async () => {
+  test('outputs nothing without entries, and explains why in the theme editor', async () => {
     const live = await renderSection(HOME, { entries: [] });
     const editor = await renderSection(HOME, { entries: [], designMode: true });
 
-    assert.equal(live.payload, null);
-    assert.doesNotMatch(live.html, /data-lookbook=/);
+    assert.equal(live.html.trim(), '');
     assert.match(editor.html, /No lookbook entries found/);
   });
 
@@ -354,58 +378,5 @@ describe('Lookbook section', () => {
     const { html } = await renderSection(HOME, { designMode: true });
 
     assert.match(html, /set to Collection but has no collection picked/);
-  });
-});
-
-describe('Load more (Storefront API)', () => {
-  test('is off without a token', async () => {
-    const { payload } = await renderSection(HOME, { settings: { entries_limit: 2 } });
-
-    assert.equal(payload.loadMore, null);
-  });
-
-  test('carries the API details when a token is set and more looks exist', async () => {
-    const { payload } = await renderSection(HOME, {
-      settings: { entries_limit: 2 },
-      storefrontToken: ' public-token ',
-    });
-
-    assert.deepEqual(payload.loadMore, {
-      endpoint: 'https://example.myshopify.com/api/2026-07/graphql.json',
-      token: 'public-token',
-      country: 'FR',
-      language: 'pt-BR',
-      rootUrl: '/fr',
-      pageSize: 2,
-      productsLimit: 12,
-      label: 'Show more',
-      loadingLabel: 'Loading...',
-      errorMessage: "Couldn't load more. Please try again.",
-    });
-  });
-
-  test('is not offered when every look is already shown', async () => {
-    const { payload } = await renderSection(HOME, { storefrontToken: 'public-token' });
-
-    assert.equal(payload.loadMore, null);
-  });
-
-  test('is not offered for picked entries', async () => {
-    const { payload } = await renderSection(HOME, {
-      settings: { entry_source: 'selected', entries: [looks[4], looks[2]], entries_limit: 1 },
-      storefrontToken: 'public-token',
-    });
-
-    assert.equal(payload.loadMore, null);
-  });
-
-  test('is never offered on a product page', async () => {
-    const { payload } = await renderSection(RELATED, {
-      product: products[1],
-      settings: { entries_limit: 1 },
-      storefrontToken: 'public-token',
-    });
-
-    assert.equal(payload.loadMore, null);
   });
 });
