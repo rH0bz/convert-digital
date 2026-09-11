@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Selengkapnya",
-      "load_more_error": "Tidak dapat memuat lebih banyak. Silakan coba lagi."
+      "load_more_error": "Tidak dapat memuat lebih banyak. Silakan coba lagi.",
+      "load_error": "Tidak dapat memuat lookbook. Silakan coba lagi."
     },
     "header": {
       "announcement": "Pengumuman",

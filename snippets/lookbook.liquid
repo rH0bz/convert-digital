@@ -1,12 +1,25 @@
 {%- comment -%}
   ============================================================================
-  Lookbook — serialises `lookbook` metaobject entries and mounts the renderer.
+  Lookbook — decides which `lookbook` entries to show, and mounts the renderer
+  that loads them through the Storefront API.
 
-  This is the reusable entry point: it owns the field keys and the payload, so a
-  lookbook can be dropped into any section, template or other snippet, not only
-  sections/lookbook.liquid.
+  This is the reusable entry point, so a lookbook can be dropped into any
+  section, template or other snippet, not only sections/lookbook.liquid.
 
     {% render 'lookbook', uid: 'home-lookbook', heading: 'Shop the look' %}
+
+  WHAT LIQUID DOES, AND WHAT IT LEAVES TO THE API
+  Liquid writes the section's settings and the ids of the entries to show, in
+  order. Everything about the looks themselves — titles, descriptions,
+  templates, products and images — is loaded in the browser through the
+  Storefront API by src/lookbook/storefront.js.
+
+  Liquid keeps the choice of entries because only it can make it: a picked list
+  is a section setting, admin order is not an order the API can sort by, and the
+  API has no way to ask which entries feature a given product.
+
+  Without a token in Theme settings > Storefront API there is nothing to load
+  the looks with, so the snippet outputs nothing, and the theme editor says so.
 
   ACCEPTS (every one optional)
     uid                 unique id for the JSON script tag. Pass section.id from
@@ -16,7 +29,9 @@
                         use the `entries` param.
     entries             a metaobject_list, used only when entry_source is
                         'selected'.
-    entries_limit       max entries when entry_source is 'all'. Default 6.
+    entries_limit       looks shown at first. For every entry, Show more loads
+                        the rest in batches of this size; on a product page it
+                        caps the matches. Default 6.
     products_limit      max products per look, both sources. Default 12.
     heading             inline_richtext section heading. Omit for no heading.
     heading_size        'h0' | 'h1' | 'h2'. Default 'h1'.
@@ -31,48 +46,28 @@
     show_notices        render the theme-editor diagnostics. Default true.
 
   RELATING LOOKS TO ONE PRODUCT (used by sections/lookbook-related.liquid)
-    containing_product  a product. When given, only looks that already feature
-                        that product are rendered — the metaobject IS the
-                        relationship, so no extra field is needed to say which
-                        looks belong to a product. It changes which looks
-                        appear, never how one is drawn: each keeps all of its
-                        products and its own Template. Cap the matches with
-                        `entries_limit`.
+    containing_product  a product. When given, only entries that feature that
+                        product are listed — through their picked products, or
+                        the collection they pull from. The metaobject IS the
+                        relationship, so no extra field is needed. Matches are
+                        capped by `entries_limit` and load all at once.
 
   OUTPUT
-  Nothing at all when no entry is rendered, apart from the theme-editor notices.
-  A caller can capture the render and skip its own wrapper when the result is
-  blank — sections/lookbook-related.liquid does, so a product outside every look
-  gets no empty padded gap.
+  Nothing at all when there is no token or no entry to show, apart from the
+  theme-editor notices. A caller can capture the render and skip its own
+  wrapper when the result is blank — both lookbook sections do, so an empty
+  lookbook leaves no padded gap.
 
-  LOAD MORE (Storefront API)
-  When Theme settings > Storefront API holds a public access token, the payload
-  carries what src/lookbook/storefront.js needs to fetch further looks: the API
-  endpoint and token, the visitor's country and language, and the batch size.
-  It is offered only for the full list of entries, and only when more exist
-  than were rendered; otherwise `loadMore` is null and no button is drawn.
+  WHICH PRODUCTS (per entry), for matching on a product page
+  Each entry carries its own "Products Source" choice list. A value containing
+  "collection" means its Collection field; anything else, including an empty
+  choice, means its picked product list.
 
-  WHICH PRODUCTS (per entry)
-  Each entry carries its own "Products Source" choice list:
-    manual      the products picked in that entry's product list field.
-    collection  the products in that entry's Collection field.
-  Either way the list is capped by `products_limit`.
-
-  Manual selection is the default. An entry only pulls from its collection when
-  Products Source explicitly says so, so entries saved before that field existed
-  — and entries where the choice was left empty — keep showing picked products.
-
-  WHICH TEMPLATE (per entry)
-  The entry's "Template" choice list is passed through untouched and resolved in
-  src/lookbook/templates/index.jsx, which normalises the value and falls back to
-  Default. Add a template there, not here.
-
-  FIELD KEYS are declared once in the {% liquid %} block below. Field keys are
-  not the same as the labels shown in admin — expand a field in the metaobject
-  definition to see its key. Renaming a field's label does NOT rename its key,
-  which is why the products field is resolved from two candidate keys. If the
-  keys below are wrong, the section renders with empty text and the theme editor
-  shows a notice saying so.
+  FIELD KEYS are declared once in the {% liquid %} block below, for matching and
+  the notices, and once in FIELD_KEYS in src/lookbook/storefront.js, for
+  loading. Keys are not the labels shown in admin — expand a field in the
+  metaobject definition to see its key. Renaming a label does NOT rename its
+  key, which is why the products field is resolved from two candidate keys.
 
   Only entries with status Active appear. Draft entries are not exposed to the
   storefront, so they will not show here or on the live site.
@@ -80,7 +75,7 @@
 {%- endcomment -%}
 
 {%- liquid
-  # ---- Field keys: the only place to edit if a key differs ----
+  # ---- Field keys: must match FIELD_KEYS in src/lookbook/storefront.js ----
   assign key_title = 'title'
   assign key_subheading = 'sub_heading'
   assign key_description = 'discreption'
@@ -108,96 +103,67 @@
   assign masonry_row_height = masonry_row_height | default: 120
   assign show_notices = show_notices | default: true, allow_false: true
 
-  # Counts entries actually emitted. The entries loop can skip an entry (it may
-  # not feature `containing_product`), so `forloop.last` does not mark the last
-  # one WRITTEN and cannot drive the commas between them — a skipped final entry
-  # would leave a trailing comma and break the JSON. Both loops below emit a
-  # leading comma from the second item onward instead.
-  assign emitted_entries = 0
+  # ---- Storefront API ----
+  # Shopify supports each Storefront API version for about a year, so move this
+  # forward before it is retired.
+  assign storefront_api_version = '2026-07'
+  assign storefront_endpoint = 'https://' | append: shop.permanent_domain | append: '/api/' | append: storefront_api_version | append: '/graphql.json'
+  assign storefront_token = settings.storefront_api_token | strip
 
-  # Either every Active entry, or only the ones passed in.
-  # A picked list is already exactly what the merchant wants, in their order, so
-  # the limit is effectively lifted rather than applied a second time.
-  if entry_source == 'selected'
+  # ---- Which entries ----
+  # A product page lists up to `entries_limit` matches. A picked list, or every
+  # entry, lists all Liquid can see: Liquid loops over at most 50 entries, so
+  # when every entry is listed and the cap is reached, `continue_paging` has the
+  # renderer carry on through the API's own pages.
+  if containing_product != blank
+    assign lookbook_entries = shop.metaobjects.lookbook.values
+    assign entry_limit = entries_limit
+  elsif entry_source == 'selected'
     assign lookbook_entries = entries
     assign entry_limit = 50
   else
     assign lookbook_entries = shop.metaobjects.lookbook.values
-    assign entry_limit = entries_limit
+    assign entry_limit = 50
   endif
+
+  assign continue_paging = false
+  if containing_product == blank and entry_source != 'selected' and lookbook_entries.size >= 50
+    assign continue_paging = true
+  endif
+
+  # Counts ids actually emitted. An entry can be skipped (it may not feature
+  # `containing_product`), so `forloop.last` does not mark the last one WRITTEN
+  # and cannot drive the commas between them — a skipped final entry would leave
+  # a trailing comma and break the JSON. The loop below emits a leading comma
+  # from the second id onward instead.
+  assign emitted_entries = 0
 -%}
 
-{%- capture entries_json -%}
+{%- capture entry_ids_json -%}
 [
 {%- for entry in lookbook_entries -%}
-  {%- comment -%}
-    Rich text is awkward to render from Liquid on a metaobject field: `.value`
-    returns the document tree (which stringifies into {"type"=>"root", ...}),
-    and outputting the field object itself produces nothing at all.
-
-    So the tree is handed to React as-is and rendered there — it is a plain
-    hash, so `json` serialises it correctly. `metafield_tag` is sent alongside
-    as a fallback for the case where the tree comes back empty; the component
-    prefers the tree, so a Liquid error from that filter can never be displayed.
-  {%- endcomment -%}
-  {%- capture description_html %}{{ entry[key_description] | metafield_tag }}{% endcapture -%}
+  {%- if emitted_entries >= entry_limit -%}{%- break -%}{%- endif -%}
 
   {%- liquid
-    # ---- Resolve this entry's product list ----
     # Matched with `contains 'collection'` rather than an exact string so the
     # choice list values can read however the merchant wrote them ("Collection",
-    # "From collection", ...). Anything else — including an empty choice — means
-    # manual selection, which is the intended default.
+    # "From collection", ...).
     assign entry_source_value = entry[key_products_source].value | default: '' | downcase
     assign entry_collection = entry[key_collection].value
 
-    assign entry_products = entry[key_products].value
-    if entry_products == blank
-      assign entry_products = entry[key_products_legacy].value
-    endif
-
-    # How many images each product contributes. Only the "Masonry - Product
-    # Images" template draws more than one, and sending three per product to a
-    # template that shows one would triple the payload for nothing.
-    #
-    # This is a loose match on the raw choice value, not a mirror of the alias
-    # table in src/lookbook/templates/index.jsx — keeping the two in exact sync
-    # would mean maintaining the same list twice. Guessing wrong is safe in the
-    # direction that matters: too few images makes a group shrink, which is
-    # already the defined behaviour for a product that has few images.
-    assign entry_template_raw = entry[key_template].value | default: ''
-
-    assign entry_template_value = entry_template_raw | downcase | replace: '-', ' ' | replace: '_', ' '
-    assign product_image_limit = 1
-    if entry_template_value contains 'product image'
-      assign product_image_limit = 3
-    endif
-
-    # One cap for both sources, so the caller decides how long a look runs
-    # whether the products were hand-picked or pulled from a collection.
-    assign entry_products_limit = products_limit
-    assign render_products = true
-
-    if entry_source_value contains 'collection'
-      if entry_collection == blank
-        # Falling back to the picked products here would silently contradict the
-        # source the merchant chose, so the look renders without products and
-        # the theme editor points at the entry instead.
-        assign render_products = false
-        assign has_missing_collection = true
-      else
-        assign entry_products = entry_collection.products
-      endif
+    if entry_source_value contains 'collection' and entry_collection == blank
+      # The look has no products to show; the theme editor points at the entry.
+      assign has_missing_collection = true
     endif
 
     # ---- Does this look feature `containing_product`? ----
-    # With no product to relate to, every entry qualifies and this costs one
-    # comparison. Collection-sourced looks are matched through the product's own
-    # collections rather than by scanning the collection's products: that reads
-    # a list the product already carries, and stays correct for collections
-    # larger than the 50 products Liquid will hand back. A look set to Collection
-    # with no collection picked renders no products, so it features none — the
-    # products still in its picked list must not match it.
+    # With no product to relate to, every entry qualifies. Collection-sourced
+    # looks are matched through the product's own collections rather than by
+    # scanning the collection's products: that reads a list the product already
+    # carries, and stays correct for collections larger than the 50 products
+    # Liquid will hand back. A look set to Collection with no collection picked
+    # has no products, so it features none — the products still in its picked
+    # list must not match it.
     assign entry_matches = true
     if containing_product != blank
       assign entry_matches = false
@@ -211,6 +177,10 @@
           endfor
         endif
       else
+        assign entry_products = entry[key_products].value
+        if entry_products == blank
+          assign entry_products = entry[key_products_legacy].value
+        endif
         for candidate in entry_products
           if candidate.id == containing_product.id
             assign entry_matches = true
@@ -219,127 +189,34 @@
         endfor
       endif
     endif
-
-    assign include_entry = false
-    if entry_matches and emitted_entries < entry_limit
-      assign include_entry = true
-    endif
   -%}
-  {%- if include_entry -%}
-  {%- if emitted_entries > 0 -%},{%- endif -%}
-  {%- assign emitted_entries = emitted_entries | plus: 1 -%}
-  {
-    "id": {{ entry.system.id | json }},
-    "title": {{ entry[key_title].value | default: '' | json }},
-    "subHeading": {{ entry[key_subheading].value | default: '' | json }},
-    "descriptionTree": {{ entry[key_description].value | json }},
-    "descriptionHtml": {{ description_html | strip | json }},
-    {%- comment -%}
-      `template` is passed through raw — normalising and falling back to Default
-      is the renderer's job, so a choice added in admin before its component
-      exists cannot drop the look off the page.
-    {%- endcomment -%}
-    "template": {{ entry_template_raw | json }},
-    "products": [
-      {%- if render_products -%}
-      {%- comment -%}
-        `forloop.first` is safe here only because no product is ever skipped.
-        Add a reason to skip one and this loop must count what it emits, as the
-        entries loop does.
 
-        The loop variable is `entry_product`, not `product`: on a product page
-        `product` is the page's own product, passed in as `containing_product`.
-      {%- endcomment -%}
-      {%- for entry_product in entry_products limit: entry_products_limit -%}
-        {%- unless forloop.first -%},{%- endunless -%}
-        {
-          "id": {{ entry_product.id | json }},
-          "title": {{ entry_product.title | json }},
-          "url": {{ entry_product.url | json }},
-          {%- comment -%}
-            A product carries only what the cards draw: a title, a link and its
-            pictures. Price and availability are left out because no card shows
-            them.
-
-            To show price, add a member here — the component has nothing to
-            read otherwise — and format it in Liquid, because the shop's
-            currency format is not reachable from JavaScript:
-            `entry_product.price | money | strip_html | json`.
-          {%- endcomment -%}
-          {%- comment -%}
-            An array even when it holds one image, so every template reads
-            products the same way. A product's images are ordered as the
-            merchant arranged the media in admin, and the first is the featured
-            image. A product with no media at all yields [], which the renderer
-            draws as the empty placeholder.
-          {%- endcomment -%}
-          "images": [
-            {%- for product_image in entry_product.images limit: product_image_limit -%}
-              {%- capture product_image_srcset -%}
-                {{ product_image | image_url: width: 300 }} 300w,
-                {{ product_image | image_url: width: 500 }} 500w,
-                {{ product_image | image_url: width: 800 }} 800w,
-                {{ product_image | image_url: width: 1200 }} 1200w
-              {%- endcapture -%}
-              {
-                "src": {{ product_image | image_url: width: 500 | json }},
-                "srcset": {{ product_image_srcset | strip_newlines | strip | json }},
-                "alt": {{ product_image.alt | default: entry_product.title | default: '' | json }},
-                "width": {{ product_image.width | json }},
-                "height": {{ product_image.height | json }}
-              }{%- unless forloop.last -%},{%- endunless -%}
-            {%- endfor -%}
-          ]
-        }
-      {%- endfor -%}
-      {%- endif -%}
-    ]
-  }
+  {%- if entry_matches -%}
+    {%- if emitted_entries > 0 -%},{%- endif -%}
+    {%- assign emitted_entries = emitted_entries | plus: 1 -%}
+    {{- 'gid://shopify/Metaobject/' | append: entry.system.id | json -}}
   {%- endif -%}
 {%- endfor -%}
 ]
 {%- endcapture -%}
 
 {%- liquid
-  # ---- Load more, through the Storefront API ----
-  # Offered only where the page shows fewer looks than exist: the full list of
-  # entries, not a picked list (complete by definition) and not the looks that
-  # feature one product. It also needs the public access token pasted into
-  # Theme settings > Storefront API. Liquid can loop over at most 50 entries;
-  # the API pages through all of them. See src/lookbook/storefront.js.
-  #
-  # Shopify supports each Storefront API version for about a year, so move this
-  # forward before it is retired.
-  assign storefront_api_version = '2026-07'
-  assign storefront_endpoint = 'https://' | append: shop.permanent_domain | append: '/api/' | append: storefront_api_version | append: '/graphql.json'
-  assign storefront_token = settings.storefront_api_token | strip
+  # How many looks load at first. A picked list and a product page's matches
+  # load whole; every entry loads `entries_limit` at a time, with Show more for
+  # the rest.
+  if containing_product != blank or entry_source == 'selected'
+    assign page_size = emitted_entries
+  else
+    assign page_size = entries_limit
+  endif
 
-  assign offer_load_more = false
-  if storefront_token != blank and containing_product == blank and entry_source != 'selected'
-    if lookbook_entries.size > emitted_entries
-      assign offer_load_more = true
+  assign render_lookbook = false
+  if storefront_token != blank
+    if emitted_entries > 0 or continue_paging
+      assign render_lookbook = true
     endif
   endif
 -%}
-
-{%- capture load_more_json -%}
-  {%- if offer_load_more -%}
-    {
-      "endpoint": {{ storefront_endpoint | json }},
-      "token": {{ storefront_token | json }},
-      "country": {{ localization.country.iso_code | json }},
-      "language": {{ request.locale.iso_code | json }},
-      "rootUrl": {{ routes.root_url | json }},
-      "pageSize": {{ entry_limit | json }},
-      "productsLimit": {{ products_limit | json }},
-      "label": {{ 'sections.lookbook.load_more' | t | json }},
-      "loadingLabel": {{ 'accessibility.loading' | t | json }},
-      "errorMessage": {{ 'sections.lookbook.load_more_error' | t | json }}
-    }
-  {%- else -%}
-    null
-  {%- endif -%}
-{%- endcapture -%}
 
 {%- capture payload -%}
 {
@@ -356,15 +233,36 @@
     intentionally blank label in the theme editor spring back to a button.
   {%- endcomment -%}
   "productCtaLabel": {{ product_cta_label | default: '' | json }},
-  "loadMore": {{ load_more_json }},
-  "entries": {{ entries_json }}
+  {%- comment -%}
+    Everything src/lookbook/storefront.js needs to load the looks. The token is
+    a public Storefront API token, which is made to be read by browsers.
+  {%- endcomment -%}
+  "source": {
+    "storefront": {
+      "endpoint": {{ storefront_endpoint | json }},
+      "token": {{ storefront_token | json }},
+      "country": {{ localization.country.iso_code | json }},
+      "language": {{ request.locale.iso_code | json }},
+      "rootUrl": {{ routes.root_url | json }}
+    },
+    "entryIds": {{ entry_ids_json }},
+    "pageSize": {{ page_size | json }},
+    "productsLimit": {{ products_limit | json }},
+    "continuePaging": {{ continue_paging | json }}
+  },
+  "labels": {
+    "loadMore": {{ 'sections.lookbook.load_more' | t | json }},
+    "loading": {{ 'accessibility.loading' | t | json }},
+    "loadMoreError": {{ 'sections.lookbook.load_more_error' | t | json }},
+    "loadError": {{ 'sections.lookbook.load_error' | t | json }}
+  }
 }
 {%- endcapture -%}
 
 {%- liquid
   # A closing script tag is neutralised in case a merchant pastes markup into
-  # the rich text field — it would otherwise close the tag below early and break
-  # the page.
+  # the heading or description settings — it would otherwise close the tag below
+  # early and break the page.
   #
   # The needle is assembled from two halves so those characters never appear
   # literally in this file. Written out, Theme Check's HTML parser treats them
@@ -382,10 +280,10 @@
   assign script_close_safe = '<\/scr' | append: 'ipt>'
 -%}
 {%- comment -%}
-  No entries, no mount point: the renderer would draw nothing anyway, and a
-  blank result is what the OUTPUT contract in the header promises callers.
+  Nothing to load, no mount point: a blank result is what the OUTPUT contract in
+  the header promises callers.
 {%- endcomment -%}
-{%- if emitted_entries > 0 -%}
+{%- if render_lookbook -%}
 <script type="application/json" id="LookbookData-{{ uid }}">
   {{- payload | replace: script_close, script_close_safe -}}
 </script>
@@ -405,7 +303,16 @@
       endif
     endfor
   -%}
-  {%- if containing_product != blank and emitted_entries == 0 and lookbook_entries != blank -%}
+  {%- if storefront_token == blank -%}
+    <div class="lookbook__notice page-width">
+      <strong>Add a Storefront API token to show this lookbook.</strong>
+      The looks are loaded through the Storefront API. In the Headless sales
+      channel, give a storefront's public access token the metaobjects and
+      product listings permissions, then paste it into
+      Theme settings &gt; Storefront API. Until then the lookbook stays hidden
+      on the storefront.
+    </div>
+  {%- elsif containing_product != blank and emitted_entries == 0 and lookbook_entries != blank -%}
     <div class="lookbook__notice page-width">
       <strong>No look features this product yet.</strong>
       This section shows the looks that already include the product being
@@ -437,7 +344,8 @@
       <code>{{ key_products }}</code> (or <code>{{ key_products_legacy }}</code>),
       <code>{{ key_collection }}</code> and <code>{{ key_products_source }}</code>.
       Open the metaobject definition, expand each field to see its real key,
-      then update the keys at the top of <code>snippets/lookbook.liquid</code>.
+      then update the keys at the top of <code>snippets/lookbook.liquid</code>
+      and in <code>src/lookbook/storefront.js</code>.
     </div>
   {%- elsif has_missing_collection -%}
     <div class="lookbook__notice page-width">

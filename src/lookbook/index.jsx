@@ -5,8 +5,9 @@ import Lookbook from './Lookbook.jsx';
  * Mount layer.
  *
  * Liquid renders an empty <div data-lookbook="<id of a JSON script tag>"> plus
- * a <script type="application/json"> holding the lookbook data. This file finds
- * those pairs and mounts React into them.
+ * a <script type="application/json"> holding the section's settings and the ids
+ * of the looks to show. This file finds those pairs and mounts React into them;
+ * the looks themselves are then loaded through the Storefront API.
  *
  * The Shopify theme editor re-renders a whole section every time the merchant
  * changes a setting. Without the shopify:section:load / :unload handling below,

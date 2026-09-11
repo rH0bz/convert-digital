@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Több részlet",
-      "load_more_error": "Nem sikerült többet betölteni. Próbálkozz újra."
+      "load_more_error": "Nem sikerült többet betölteni. Próbálkozz újra.",
+      "load_error": "Nem sikerült betölteni a lookbookot. Próbálkozz újra."
     },
     "header": {
       "announcement": "Közlemény",

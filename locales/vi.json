@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Hiển thị thêm",
-      "load_more_error": "Không thể tải thêm. Vui lòng thử lại."
+      "load_more_error": "Không thể tải thêm. Vui lòng thử lại.",
+      "load_error": "Không thể tải lookbook. Vui lòng thử lại."
     },
     "header": {
       "announcement": "Thông báo",

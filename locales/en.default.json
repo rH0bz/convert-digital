@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Show more",
-      "load_more_error": "Couldn't load more. Please try again."
+      "load_more_error": "Couldn't load more. Please try again.",
+      "load_error": "Couldn't load the lookbook. Please try again."
     },
     "announcements": {
       "previous_announcement": "Previous announcement",

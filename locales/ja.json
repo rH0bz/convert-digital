@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "さらに表示する",
-      "load_more_error": "さらに読み込めませんでした。もう一度お試しください。"
+      "load_more_error": "さらに読み込めませんでした。もう一度お試しください。",
+      "load_error": "ルックブックを読み込めませんでした。もう一度お試しください。"
     },
     "header": {
       "announcement": "告知",

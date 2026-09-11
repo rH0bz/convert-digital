@@ -296,7 +296,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Zobraziť viac",
-      "load_more_error": "Ďalšie položky sa nepodarilo načítať. Skúste to znova."
+      "load_more_error": "Ďalšie položky sa nepodarilo načítať. Skúste to znova.",
+      "load_error": "Lookbook sa nepodarilo načítať. Skúste to znova."
     },
     "header": {
       "announcement": "Oznámenie",

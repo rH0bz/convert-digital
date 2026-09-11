@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Meer weergeven",
-      "load_more_error": "Kan niet meer laden. Probeer het opnieuw."
+      "load_more_error": "Kan niet meer laden. Probeer het opnieuw.",
+      "load_error": "Het lookbook kan niet worden geladen. Probeer het opnieuw."
     },
     "header": {
       "announcement": "Aankondiging",

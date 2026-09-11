@@ -287,7 +287,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Mostrar más",
-      "load_more_error": "No se pudo cargar más contenido. Inténtalo de nuevo."
+      "load_more_error": "No se pudo cargar más contenido. Inténtalo de nuevo.",
+      "load_error": "No se pudo cargar el lookbook. Inténtalo de nuevo."
     },
     "header": {
       "announcement": "Anuncio",

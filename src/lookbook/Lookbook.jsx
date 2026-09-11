@@ -1,11 +1,10 @@
 /*
  * The renderer.
  *
- * The first looks come from the JSON payload that snippets/lookbook.liquid
- * writes into the page, so their data arrives with the HTML and React draws
- * them once lookbook.js has loaded. When the payload offers Load more, further
- * looks are fetched through the Storefront API and appended after them (see
- * useLoadMore.js and storefront.js).
+ * Liquid writes the section's settings and the ids of the looks to show into
+ * the page (snippets/lookbook.liquid). The looks themselves are loaded through
+ * the Storefront API as soon as this mounts, and more with the Show more button
+ * — see useLookbookEntries.js and storefront.js.
  *
  * Each entry names a template, and the component for it comes from
  * ./templates. Per-entry templates are why the container width is set inside
@@ -13,32 +12,39 @@
  * container its neighbours sit in.
  */
 
+import { useMemo } from 'react';
 import { resolveTemplate } from './templates/index.jsx';
-import useLoadMore from './useLoadMore.js';
+import { unescapeTranslations } from './translations.js';
+import useLookbookEntries from './useLookbookEntries.js';
 
 export default function Lookbook({
   heading,
   headingSize = 'h1',
   subHeading,
   description,
-  entries: initialEntries = [],
   showSubHeading = true,
   showDescription = true,
   masonryRowHeight = 120,
   productCtaLabel,
-  loadMore = null,
+  source,
+  labels: escapedLabels = {},
 }) {
-  const { entries, status, requestMore } = useLoadMore(initialEntries, loadMore);
+  const { entries, status, loadMore } = useLookbookEntries(source);
+  // Shopify's `t` filter HTML-escapes the labels; see translations.js.
+  const labels = useMemo(() => unescapeTranslations(escapedLabels), [escapedLabels]);
 
-  if (!entries.length) {
+  // Everything loaded and nothing the token could read: draw nothing rather than an empty heading.
+  if (status === 'done' && entries.length === 0) {
     return null;
   }
 
   /*
    * The section's own heading block, distinct from the per-entry header that
-   * EntryHeader draws. Shown as soon as any one of the three has content.
+   * EntryHeader draws. Shown as soon as any one of the three has content, and
+   * straight away — it comes from Liquid, so it does not wait for the API.
    */
   const hasHeader = heading || subHeading || description;
+  const canLoadMore = status === 'idle' || status === 'loading-more' || status === 'error-more';
 
   return (
     <div className="lookbook">
@@ -82,6 +88,18 @@ export default function Lookbook({
         </div>
       )}
 
+      {status === 'loading' && (
+        <p className="lookbook__status page-width" role="status">
+          {labels.loading}
+        </p>
+      )}
+
+      {status === 'error' && (
+        <p className="lookbook__status page-width" role="alert">
+          {labels.loadError}
+        </p>
+      )}
+
       {entries.map((entry) => {
         const Template = resolveTemplate(entry.template);
 
@@ -97,21 +115,21 @@ export default function Lookbook({
         );
       })}
 
-      {loadMore && status !== 'done' && (
+      {canLoadMore && (
         <div className="lookbook__load-more page-width">
           <button
             type="button"
             className="button button--secondary"
-            onClick={requestMore}
-            disabled={status === 'loading'}
-            aria-busy={status === 'loading'}
+            onClick={loadMore}
+            disabled={status === 'loading-more'}
+            aria-busy={status === 'loading-more'}
           >
-            {status === 'loading' ? loadMore.loadingLabel : loadMore.label}
+            {status === 'loading-more' ? labels.loading : labels.loadMore}
           </button>
 
-          {status === 'error' && (
+          {status === 'error-more' && (
             <p className="lookbook__load-more-error" role="alert">
-              {loadMore.errorMessage}
+              {labels.loadMoreError}
             </p>
           )}
         </div>

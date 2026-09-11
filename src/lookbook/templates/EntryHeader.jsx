@@ -9,7 +9,7 @@
 import RichText from '../RichText.jsx';
 
 export default function EntryHeader({ entry, showSubHeading, showDescription }) {
-  const { title, subHeading, descriptionTree, descriptionHtml } = entry;
+  const { title, subHeading, descriptionTree } = entry;
 
   return (
     <header className="lookbook__entry-header">
@@ -20,11 +20,7 @@ export default function EntryHeader({ entry, showSubHeading, showDescription }) 
       )}
 
       {showDescription && (
-        <RichText
-          tree={descriptionTree}
-          html={descriptionHtml}
-          className="lookbook__entry-description rte"
-        />
+        <RichText tree={descriptionTree} className="lookbook__entry-description rte" />
       )}
     </header>
   );

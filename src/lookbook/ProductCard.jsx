@@ -5,8 +5,9 @@
  *
  * The card is the image: the title and the call to action sit over it rather
  * than below, so the whole tile is media and the layouts stay on a clean grid.
- * Price and availability are deliberately not shown, and are not in the
- * payload either — see snippets/lookbook.liquid before adding them.
+ * Price and availability are deliberately not shown, and the Storefront API
+ * query does not ask for them — add them to the LookProduct fragment in
+ * storefront.js first.
  *
  * `sizes` differs per template — a one-row layout and a masonry grid hand the
  * browser very different widths — so each template passes its own rather than

@@ -296,7 +296,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Pokaż więcej",
-      "load_more_error": "Nie udało się wczytać więcej. Spróbuj ponownie."
+      "load_more_error": "Nie udało się wczytać więcej. Spróbuj ponownie.",
+      "load_error": "Nie udało się wczytać lookbooka. Spróbuj ponownie."
     },
     "header": {
       "announcement": "Ogłoszenie",

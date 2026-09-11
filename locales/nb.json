@@ -278,7 +278,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Vis mer",
-      "load_more_error": "Kunne ikke laste inn flere. Prøv på nytt."
+      "load_more_error": "Kunne ikke laste inn flere. Prøv på nytt.",
+      "load_error": "Kunne ikke laste inn lookbooken. Prøv på nytt."
     },
     "header": {
       "announcement": "Kunngjøring",

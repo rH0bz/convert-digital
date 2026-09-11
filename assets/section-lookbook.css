@@ -482,8 +482,21 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Load more — drawn only when the payload offers it: a Storefront API token is
-   set, and the section shows fewer looks than exist.
+   Loading state — shown under the section header while the Storefront API
+   request for the first looks is on its way, or in its place if it fails.
+   --------------------------------------------------------------------------- */
+
+.lookbook__status {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 4rem 1.5rem;
+  color: rgba(var(--color-foreground), 0.75);
+  font-size: 1.4rem;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Show more — drawn while more looks can be loaded through the Storefront API.
    --------------------------------------------------------------------------- */
 
 .lookbook__load-more {

@@ -8,9 +8,9 @@
  *     { type: 'paragraph', children: [
  *       { type: 'text', value: 'Discreption', bold: false, italic: false } ] } ] }
  *
- * Liquid has no dependable way to turn that into HTML on a metaobject field, so
- * the tree is passed through untouched and walked here instead. That also means
- * the markup is fully under our control — a paragraph can become whatever the
+ * The Storefront API returns that tree as the field's value, serialised as
+ * JSON; storefront.js parses it and it is walked here. That also means the
+ * markup is fully under our control — a paragraph can become whatever the
  * design needs, rather than whatever Shopify would have emitted.
  */
 
@@ -67,21 +67,12 @@ function Node({ node }) {
   }
 }
 
-export default function RichText({ tree, html, className }) {
-  // The tree is preferred, so a Liquid error string from the metafield_tag
-  // fallback in the .liquid file can never end up on the page.
-  if (tree) {
-    return (
-      <div className={className}>
-        <Node node={tree} />
-      </div>
-    );
-  }
+export default function RichText({ tree, className }) {
+  if (!tree) return null;
 
-  if (html) {
-    // Authored by staff in the Shopify admin, not by shoppers.
-    return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
-  }
-
-  return null;
+  return (
+    <div className={className}>
+      <Node node={tree} />
+    </div>
+  );
 }

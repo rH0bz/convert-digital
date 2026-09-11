@@ -17,42 +17,54 @@
   ============================================================================
 {%- endcomment -%}
 
-{{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
-<script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
+{%- capture lookbook_markup -%}
+  {%- render 'lookbook',
+    uid: section.id,
+    entry_source: section.settings.entry_source,
+    entries: section.settings.entries,
+    entries_limit: section.settings.entries_limit,
+    products_limit: section.settings.products_limit,
+    heading: section.settings.heading,
+    heading_size: section.settings.heading_size,
+    sub_heading: section.settings.sub_heading,
+    description: section.settings.description,
+    show_sub_heading: section.settings.show_sub_heading,
+    show_description: section.settings.show_description,
+    masonry_row_height: section.settings.masonry_row_height,
+    product_cta_label: section.settings.product_cta_label
+  -%}
+{%- endcapture -%}
 
-{%- style -%}
-  .section-{{ section.id }}-padding {
-    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-  }
+{%- comment -%}
+  The snippet outputs nothing when there is nothing to load — no Storefront API
+  token, or no entries — except in the theme editor, where it explains why.
+  Skipping the wrapper as well keeps an empty padded gap off the page.
+{%- endcomment -%}
+{%- assign lookbook_markup = lookbook_markup | strip -%}
+{%- if lookbook_markup != blank -%}
+  {{ 'section-lookbook.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'lookbook.js' | asset_url }}" defer="defer"></script>
 
-  @media screen and (min-width: 750px) {
+  {%- style -%}
     .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
+      padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+      padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
     }
-  }
-{%- endstyle -%}
 
-<div class="color-{{ section.settings.color_scheme }} gradient">
-  <div class="section-{{ section.id }}-padding isolate">
-    {%- render 'lookbook',
-      uid: section.id,
-      entry_source: section.settings.entry_source,
-      entries: section.settings.entries,
-      entries_limit: section.settings.entries_limit,
-      products_limit: section.settings.products_limit,
-      heading: section.settings.heading,
-      heading_size: section.settings.heading_size,
-      sub_heading: section.settings.sub_heading,
-      description: section.settings.description,
-      show_sub_heading: section.settings.show_sub_heading,
-      show_description: section.settings.show_description,
-      masonry_row_height: section.settings.masonry_row_height,
-      product_cta_label: section.settings.product_cta_label
-    -%}
+    @media screen and (min-width: 750px) {
+      .section-{{ section.id }}-padding {
+        padding-top: {{ section.settings.padding_top }}px;
+        padding-bottom: {{ section.settings.padding_bottom }}px;
+      }
+    }
+  {%- endstyle -%}
+
+  <div class="color-{{ section.settings.color_scheme }} gradient">
+    <div class="section-{{ section.id }}-padding isolate">
+      {{ lookbook_markup }}
+    </div>
   </div>
-</div>
+{%- endif -%}
 
 {% schema %}
 {
@@ -90,7 +102,7 @@
       "step": 1,
       "default": 6,
       "label": "Maximum entries to show",
-      "info": "Only applies when Entries to show is All entries. A picked list shows everything you picked."
+      "info": "How many looks show at first when Entries to show is All entries; Show more loads the rest in batches of this size. A picked list shows everything you picked."
     },
     {
       "type": "header",

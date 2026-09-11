@@ -287,7 +287,8 @@
   "sections": {
     "lookbook": {
       "load_more": "Afișează mai mult",
-      "load_more_error": "Nu s-au putut încărca mai multe. Încercați din nou."
+      "load_more_error": "Nu s-au putut încărca mai multe. Încercați din nou.",
+      "load_error": "Lookbook-ul nu a putut fi încărcat. Încercați din nou."
     },
     "header": {
       "announcement": "Anunț",
