@@ -85,6 +85,10 @@
     "disclosures": {
       "type": "disclosures",
       "settings": {
+        "heading": "Disclosures",
+        "heading_size": "h2",
+        "open_by_default": false,
+        "color_scheme": "",
         "padding_top": 36,
         "padding_bottom": 0
       }
@@ -107,15 +111,30 @@
         "padding_bottom": 28
       }
     },
-    "related-lookbook": {
+    "lookbook_related_CYKnFB": {
       "type": "lookbook-related",
-      "settings": {}
+      "name": "Related lookbook",
+      "settings": {
+        "entries_limit": 2,
+        "heading": "Shop the look",
+        "heading_size": "h2",
+        "sub_heading": "",
+        "description": "",
+        "show_sub_heading": false,
+        "show_description": false,
+        "product_cta_label": "Shop now",
+        "products_limit": 6,
+        "masonry_row_height": 100,
+        "color_scheme": "",
+        "padding_top": 36,
+        "padding_bottom": 36
+      }
     }
   },
   "order": [
     "main",
     "disclosures",
-    "related-lookbook",
-    "related-products"
+    "related-products",
+    "lookbook_related_CYKnFB"
   ]
 }
